@@ -5,10 +5,10 @@ string $asInstallScriptLocation=`asInstallScriptLocation`;
 if (`gmatch $asInstallScriptLocation "*\*"`)
 	$asInstallScriptLocation=`substituteAllString $asInstallScriptLocation "\\" "/"`;
 string $scriptName="oneLiner";
-string $sourceFile=$asInstallScriptLocation+$scriptName+".py";
+string $sourceFile=$asInstallScriptLocation+"script/"+$scriptName+".py";
 
 string $command = "import sys\n"
-+"PATH = '"+ $asInstallScriptLocation +"'\n"
++"PATH = '"+ $asInstallScriptLocation +"script/'\n"
 +"\n"
 +"sys.path.append(PATH)\n"
 +"import MainWindow\n"
