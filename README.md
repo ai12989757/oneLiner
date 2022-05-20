@@ -4,7 +4,7 @@ Simple Renamer Tool for Maya
 
 # Language
 
-English/[简体中文](README_zh.md)
+English|[简体中文](README_zh.md)
 
 ## UI
 
@@ -17,6 +17,13 @@ English/[简体中文](README_zh.md)
 - PySide2
 - maya2019-2023
 - pymel-1.2.0
+
+## To be optimized
+
+- [ ] fix listView szie
+- [ ] support maya auto rename preview
+- [ ] add gif tips
+- [ ] Set hotkeys in the pop-up window during installation
 
 ## Using tutorials
 
