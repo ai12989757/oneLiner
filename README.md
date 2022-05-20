@@ -2,10 +2,6 @@
 
 ![image.png](images/10.png "如名所示，只有一行，极简")
 
-## 下载地址
-
-[oneLiner.zip](https://anonfiles.com/r1eaf2icy5/oneLiner_zip)
-
 ## 运行环境
 
 windows
