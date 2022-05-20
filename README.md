@@ -64,7 +64,7 @@ maya2022 pymel-1.2.0
       - **fs: xxx** 选中开头含有**xxx**字符的对象，**xxx**为空则选择所有，回车后选中开头含有**xxx**对象
       - **fe: xxx** 选中结尾含有**xxx**字符的对象，**xxx**为空则选择所有，回车后选中结尾含有**xxx**对象
 
-![07_附加功能.gif](https://cdn.nlark.com/yuque/0/2022/gif/28934963/1653010018322-707c2a1e-5f34-42a7-8d03-ad5485c2f841.gif#clientId=u880a299c-12f3-4&crop=0&crop=0&crop=1&crop=1&from=ui&id=u30ff07ca&margin=%5Bobject%20Object%5D&name=07_%E9%99%84%E5%8A%A0%E5%8A%9F%E8%83%BD.gif&originHeight=210&originWidth=640&originalType=binary&ratio=1&rotation=0&showTitle=true&size=10429091&status=done&style=none&taskId=u057d21da-a78f-4800-a20a-132ad846c7b&title=%E5%8A%9F%E8%83%BD%E7%AD%89%E5%90%8C%E4%BA%8E%E5%91%BD%E4%BB%A4%20ls%20%22%2Axxx%2A%22%3B%20ls%20%22xxx%2A%22%3B%C2%A0%20ls%20%22%2Axxx%22%3B "功能等同于命令 ls "*xxx*"; ls "xxx*";  ls "*xxx";")
+![07_附加功能.gif](https://cdn.nlark.com/yuque/0/2022/gif/28934963/1653010018322-707c2a1e-5f34-42a7-8d03-ad5485c2f841.gif)
 #### 右击查看帮助
 ![image.png](https://cdn.nlark.com/yuque/0/2022/png/28934963/1652932809050-417f698c-0353-46a5-85b2-691971760d3e.png#clientId=u21dde9ea-4c25-4&crop=0.0108&crop=0.059&crop=0.9756&crop=0.9846&from=paste&height=376&id=QeIcX&margin=%5Bobject%20Object%5D&name=image.png&originHeight=390&originWidth=369&originalType=binary&ratio=1&rotation=0&showTitle=false&size=27003&status=done&style=none&taskId=udd45a5c5-5d1f-4b54-92cf-3280ba7dbcc&title=&width=356)
 # 鸣谢：
