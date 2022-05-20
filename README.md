@@ -1,14 +1,14 @@
 # OneLiner
 
-# 语言
+# Language
 
-[English](README_en.md)/[简体中文](RREADME.md)
+[English](README.md)/[简体中文](RREADME_zh.md)
 
-## 界面
+## UI
 
-![image.png](images/10.png "如名所示，只有一行，极简")
+![image.png](images/10.png)
 
-## 运行环境
+## ENV
 
 - windows
 - python3.x
@@ -16,90 +16,83 @@
 - maya2019-2023
 - pymel-1.2.0
 
-## 待优化
+## Using tutorials
 
-- [ ] 预览的列表框不能完美显示出选中的对象
-- [ ] 添加对maya重名对象的预览支持
-- [ ] 右击查看帮助改右边按钮/悬停，查看gif教程
-- [ ] 安装时弹出窗口设置快捷键
+### Instll
 
-## 使用教程
+- Download and unzip the oneLiner.zip
+- Drag and drop the "studiolibrary/install.mel" file onto the Maya viewport
+- Click the Studio Library icon on the shelf to run
 
-### 安装
+    **tips：It is recommended to set it as a shortcut key**
 
-- 打开文件目录，注意路径不要有特殊字母和中文
-- 将install.mel文件拖拽进maya视图窗口
-- 工具将自动添加到当前工具架上![icon.png](images/icon/icon.png)
+### Details
 
-    **tips：推荐使用自定义快捷键，将工具架里的代码复制进热键编辑器里，指定一个快捷键**
+#### Simple
 
-### 具体操作
+- select object run the script,Enter text
 
-#### 基础操作
+![01.gif](images/01.gif)
 
-- 选中的对象执行脚本，选中对象的名称会预览在输入框下方，并实时更新
+##### > Find and replace
 
-![01.gif](images/01.gif "在输入框内直接输入要变更的名字，新名字将在输入框下方预览，回车执行重命名")
+- oldName">"newName" (without quotes)
 
-##### > 查找和替换
+![03.gif](images/03.gif)
 
-- 旧名字>新名字
+##### USE ! # @
 
-![03.gif](images/03.gif "可与 @ # 一起使用")
+- **!** old name
 
-##### ! # @ 符号的使用
+![02.gif](images/02.gif)
 
-- **!** 表示对象的旧名称，输入时键入 **!** 操作用来代替旧名称
+- **#** numbering based on selection, add more # for more digits
 
-![02.gif](images/02.gif "可以在输入文本的任何位置，可以多次使用可与 # @ 一起使用")
+![01.gif](images/01.gif)
 
-- **#** 表示数字，根据选择对象的顺序排序
+- **@** alphabetical numbering based on selection
 
-![01.gif](images/01.gif "可以键入多个用来表示多个数字可与 ! @ 一起使用")
+![04.gif](images/04.gif)
 
-- **@** 表示字母，根据选择对象的顺序排序
+##### /s /h selected/hierarchy
 
-![04.gif](images/04.gif "只能键入一次可与 ! # 一起使用")
+- **/s** selected only (this is default, you dont have to type this)
+- **/h** add items from all hierarchy descendants of selected items
 
-##### /s /h 应用于选定/层级
+![05.gif](images/05.gif)
 
-- **/s** 模式默认，无需特殊标注
-- **/h** 作用与所选对象及其层级，在末尾键入**/h**
+##### + - -- emove first or last character(s)
 
-![05.gif](images/05.gif "可与其他符号一起使用")
+- **+num** +(amount of characters to remove) = removes specific amounts of characters from first character
+- **-num** -(amount of characters to remove) = removes specific amounts of characters from last character
+- **--num** Delete to leave only
 
-##### + - -- 删除字符
-
-- **+数字** 组合使用，从名字开端删除字符，**+**表示从前往后，**数字**表示删除几个字符
-- **-数字** 组合使用，从名字结尾删除字符，**-**表示从后往前，**数字**表示删除几个字符
-- **--数字** 组合使用，从结尾删除字符，**数字**表示删到只剩几个字符
-
-![06.gif](images/06.gif "不可与其他符号一起使用")
+![06.gif](images/06.gif)
 
 ##### f: fs: fe: 附加功能
 
-- **f: xxx** 选中所有含有**xxx**字符的对象，**xxx**为空则选择所有，回车后选中名字里含有**xxx**的对象
-- **fs: xxx** 选中开头含有**xxx**字符的对象，**xxx**为空则选择所有，回车后选中开头含有**xxx**对象
-- **fe: xxx** 选中结尾含有**xxx**字符的对象，**xxx**为空则选择所有，回车后选中结尾含有**xxx**对象
+- **f: xxx** at the start of the text to find objects within desired characters
+- **fs: xxx** at the start of the text to find objects that ends with the desired characters
+- **fe: xxx** at the start of the text to find objects the starts with the desired scharacters
 
 ![07.gif](images/07.gif)
 
-##### 右击查看帮助
+##### Right click Show Tips
 
 ![08.png](images/08.png)
 
-## 鸣谢
+## Thanks
 
-- **oneLiner原作者:**
+- **Original Author:**
 
     Fauzan Syabana
 
     zansyabana@gmail.com
 
-    重命名功能代码沿用自原作者
+    rename code for Fauzan Syabana
 
-- **oneLiner原文链接:**
+- **oneLiner:**
 
     [https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya](<https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya>)
 
-    ![09.png](images/09.png "原UI")
+    ![09.png](images/09.png)
