@@ -1,5 +1,9 @@
 # OneLiner
 
+# 语言
+
+[English](README_en.md)/[简体中文](RREADME.md)
+
 ## 界面
 
 ![image.png](images/10.png "如名所示，只有一行，极简")

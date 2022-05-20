@@ -1,5 +1,9 @@
 # OneLiner
 
+# language
+
+[English](README_en.md)/[简体中文](RREADME.md)
+
 ## UI
 
 ![image.png](images/10.png)
