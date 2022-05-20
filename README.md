@@ -26,7 +26,7 @@ Simple Renamer Tool for Maya
 - Drag and drop the "studiolibrary/install.mel" file onto the Maya viewport
 - Click the Studio Library icon on the shelf to run
 
-    **tips：It is recommended to set it as a shortcut key**
+    **tips：It is recommended to set it as a Hotkey**
 
 ### Details
 
