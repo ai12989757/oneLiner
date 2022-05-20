@@ -2,9 +2,7 @@
 
 Simple Renamer Tool for Maya
 
-# Language
-
-English|[简体中文](README_zh.md)
+# English|[简体中文](README_zh.md)
 
 ## UI
 
