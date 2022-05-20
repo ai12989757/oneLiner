@@ -23,9 +23,9 @@ Simple Renamer Tool for Maya
 - [ ] add gif tips
 - [ ] Set hotkeys in the pop-up window during installation
 
-## Using tutorials
+## Tutorials
 
-### Install
+### Installation
 
 - Download and unzip the oneLiner.zip
 - Drag and drop the "studiolibrary/install.mel" file onto the Maya viewport
@@ -101,3 +101,7 @@ Simple Renamer Tool for Maya
     [https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya](<https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya>)
 
     ![09.png](images/09.png)
+
+## License
+
+[MIT](LICENSE)

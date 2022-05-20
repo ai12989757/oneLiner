@@ -103,3 +103,7 @@
     [https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya](<https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya>)
 
     ![09.png](images/09.png "原UI")
+
+## 许可证
+
+[MIT](LICENSE)
