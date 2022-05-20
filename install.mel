@@ -1,0 +1,83 @@
+global string $gShelfTopLevel;
+string $currentShelf = `tabLayout -query -selectTab $gShelfTopLevel`;
+setParent $currentShelf;
+string $asInstallScriptLocation=`asInstallScriptLocation`;
+if (`gmatch $asInstallScriptLocation "*\*"`)
+	$asInstallScriptLocation=`substituteAllString $asInstallScriptLocation "\\" "/"`;
+string $scriptName="oneLiner";
+string $sourceFile=$asInstallScriptLocation+$scriptName+".py";
+
+string $command = "import sys\n"
++"PATH = '"+ $asInstallScriptLocation +"'\n"
++"\n"
++"sys.path.append(PATH)\n"
++"import MainWindow\n"
++"\n"
++"if(sys.version_info.major>=3):\n"
++"    def reload(MODULE):\n"     
++"        import importlib\n"
++"        importlib.reload(MODULE)\n"
++"reload(MainWindow)\n"
++"\n"
++"if __name__ == \"__main__\":\n"
++"    try:\n"
++"        olUI.close()\n"
++"        olUI.deleteLater()\n"
++"    except:\n"
++"        pass\n"
++"\n"
++"    olUI = MainWindow.oneLinerUI()\n"
++"    olUI.show()\n"
+;
+string $doubleClickCommand;
+if (!`file -q -ex $sourceFile`)
+	error ("Something went wrong, can not find: \""+$sourceFile+"\"");
+//--installTemplate pause--//
+shelfButton
+	-command $command
+	-doubleClickCommand $doubleClickCommand
+	-annotation "项目资产管理工具, 动画导入/导出, 缓存导入/导出"
+	-label $scriptName
+	-image ($asInstallScriptLocation+"icon/icon.png")
+	-image1 ($asInstallScriptLocation+"icon/icon.png")
+	-sourceType "python"
+;
+
+print ("\n// "+$scriptName+" has been added to current shelf.\n");
+
+global proc asInstallScriptLocator (){}
+
+global proc string asInstallScriptLocation ()
+{
+string $whatIs=`whatIs asInstallScriptLocator`;
+string $fullPath=`substring $whatIs 25 999`;
+string $buffer[];
+string $slash="/";
+if (`gmatch $whatIs "*\\\\*"`)//sourced from ScriptEditor
+	$slash="\\";
+int $numTok=`tokenize $fullPath $slash $buffer`;
+int $numLetters=size($fullPath);
+int $numLettersLastFolder=size($buffer[$numTok-1]);
+string $scriptLocation=`substring $fullPath 1 ($numLetters-$numLettersLastFolder)`;
+return $scriptLocation;
+}
+
+global proc float asMayaVersionAsFloat ()
+{
+float $version=2012;
+if (`exists getApplicationVersionAsFloat`)
+	return `getApplicationVersionAsFloat`;
+string $versionString=`about -v`;
+string $tempString[];
+string $char;
+tokenize $versionString $tempString;
+//default to 2012, if versionString is not all numbers
+for ($i=0;$i<size($tempString[0]);$i++)
+	{
+	$char=`substring $tempString[0] ($i+1) ($i+1)`;
+	if (!`gmatch $char "[0-9]"`)
+		return 2012;
+	}
+$version=$tempString[0];
+return $version;
+}
