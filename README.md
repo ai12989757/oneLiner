@@ -94,6 +94,6 @@
 
 - **oneLiner原文链接:**
 
-    [https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya](<https://www.highend3d.com/maya/scriponeliner-simple-renamer-tool-for-maya>)
+    [https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya](<https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya>)
 
     ![image.png](images/09.png "原UI")
