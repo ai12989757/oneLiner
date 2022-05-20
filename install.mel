@@ -38,8 +38,8 @@ shelfButton
 	-doubleClickCommand $doubleClickCommand
 	-annotation "项目资产管理工具, 动画导入/导出, 缓存导入/导出"
 	-label $scriptName
-	-image ($asInstallScriptLocation+"icon/icon.png")
-	-image1 ($asInstallScriptLocation+"icon/icon.png")
+	-image ($asInstallScriptLocation+"images/icon/icon.png")
+	-image1 ($asInstallScriptLocation+"images/icon/icon.png")
 	-sourceType "python"
 ;
 
