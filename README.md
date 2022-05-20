@@ -71,7 +71,7 @@ Simple Renamer Tool for Maya
 
 ![06.gif](images/06.gif)
 
-##### f: fs: fe: 附加功能
+##### f: fs: fe: Additional tool
 
 - **f: xxx** at the start of the text to find objects within desired characters
 - **fs: xxx** at the start of the text to find objects that ends with the desired characters
