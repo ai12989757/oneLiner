@@ -20,7 +20,7 @@ Simple Renamer Tool for Maya
 
 ## Using tutorials
 
-### Instll
+### Install
 
 - Download and unzip the oneLiner.zip
 - Drag and drop the "studiolibrary/install.mel" file onto the Maya viewport
