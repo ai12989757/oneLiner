@@ -38,7 +38,7 @@ Simple Renamer Tool for Maya
 
 ##### > Find and replace
 
-- oldName">"newName" (without quotes)
+- "oldName">"newName" (without quotes)
 
 ![03.gif](images/03.gif)
 
@@ -80,8 +80,6 @@ Simple Renamer Tool for Maya
 ![07.gif](images/07.gif)
 
 ##### Right click Show Tips
-
-![08.png](images/08.png)
 
 ## Thanks
 
