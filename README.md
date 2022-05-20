@@ -84,13 +84,11 @@
 ## 鸣谢
 
 - **oneLiner原作者：**
-
   Fauzan Syabana
   zansyabana@gmail.com
   重命名功能代码沿用自原作者
 
 - **oneLiner原文链接：**
-
   [https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya](<https://www.highend3d.com/maya/scriponeliner-simple-renamer-tool-for-maya>)
 
 ![image.png](images/09.png "原UI")
