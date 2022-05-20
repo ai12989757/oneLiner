@@ -242,7 +242,7 @@ class oneLinerWindow(object):
                   '\n\nAdditional tool:'\
                   '\nadd f: at the start of the text to find objects within desired characters'\
                   '\nadd fe: at the start of the text to find objects that ends with the desired characters'\
-                  '\nadd f: at the start of the text to find objects the starts with the desired scharacters'
+                  '\nadd fs: at the start of the text to find objects the starts with the desired scharacters'
 
         column = columnLayout(cal='center', adj=True)
         separator(h=1, style='none')
@@ -252,7 +252,6 @@ class oneLinerWindow(object):
     def runFunc(self,*args):
         self.rnmQ = textField(self.rnmInput, text=True,q=True)
         oneLiner(self.rnmQ)
-        #window(self.windowName, e=True, vis=False) # 成功执行后隐藏窗口
 
 oneLinerWindow().show()
 """
