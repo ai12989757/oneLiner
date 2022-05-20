@@ -1,5 +1,7 @@
 # OneLiner
 
+非常简单的重命名小工具
+
 # 语言
 
 [English](README.md)/[简体中文](RREADME_zh.md)

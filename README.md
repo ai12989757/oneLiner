@@ -1,5 +1,7 @@
 # OneLiner
 
+Simple Renamer Tool for Maya
+
 # Language
 
 [English](README.md)/[简体中文](RREADME_zh.md)
