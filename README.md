@@ -24,7 +24,6 @@
 - 打开文件目录，注意路径不要有特殊字母和中文
 - 将install.mel文件拖拽进maya视图窗口
 - 工具将自动添加到当前工具架上![icon.png](icon/icon.png)
-
 **tips：推荐使用自定义快捷键，将工具架里的代码复制进热键编辑器里，指定一个快捷键**
 
 ### 具体操作
@@ -41,9 +40,9 @@
 
 ![03_大于号.gif](images/03.gif "可与 @ # 一起使用")
 
-##### ! # @ 符号的使用 
+##### ! # @ 符号的使用
 
-- **!** 表示对象的旧名称，输入时键入 **! **操作用来代替旧名称
+- **!** 表示对象的旧名称，输入时键入 **!** 操作用来代替旧名称
 
 ![02_感叹号.gif](images/02.gif "可以在输入文本的任何位置，可以多次使用可与 # @ 一起使用")
 
@@ -84,13 +83,13 @@
 
 ## 鸣谢
 
-- oneLiner原作者：
+- **oneLiner原作者：**
 
     Fauzan Syabana
     zansyabana@gmail.com
     重命名功能代码沿用自原作者
 
-- oneLiner原文链接：
+- **oneLiner原文链接：**
 
     [https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya](<https://www.highend3d.com/maya/scriponeliner-simple-renamer-tool-for-maya>)
 
