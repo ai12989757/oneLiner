@@ -68,7 +68,7 @@ Simple Renamer Tool for Maya
 
 ![05.gif](images/05.gif)
 
-##### + - -- rmove first or last character(s)
+##### + - -- remove first or last character(s)
 
 - **+num** +(amount of characters to remove) = removes specific amounts of characters from first character
 - **-num** -(amount of characters to remove) = removes specific amounts of characters from last character
