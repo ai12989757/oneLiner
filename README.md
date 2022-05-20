@@ -4,9 +4,11 @@
 
 ## 运行环境
 
-windows
-python3.x PySide2
-maya2022 pymel-1.2.0
+- windows
+- python3.x
+- PySide2
+- maya2019-2023
+- pymel-1.2.0
 
 ## 待优化
 
