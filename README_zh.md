@@ -4,7 +4,7 @@
 
 # 语言
 
-[English](README.md)/[简体中文](RREADME_zh.md)
+[English](README.md)/[简体中文](README_zh.md)
 
 ## 界面
 
