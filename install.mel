@@ -9,8 +9,9 @@ string $sourceFile=$asInstallScriptLocation+"script/"+$scriptName+".py";
 
 string $command = "import sys\n"
 +"PATH = '"+ $asInstallScriptLocation +"script/'\n"
++"if PATH not in sys.path:\n"
++"	sys.path.append(PATH)\n"
 +"\n"
-+"sys.path.append(PATH)\n"
 +"import MainWindow\n"
 +"\n"
 +"if(sys.version_info.major>=3):\n"
