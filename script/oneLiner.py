@@ -12,11 +12,8 @@
 # - support python 3.x
 # - create new UI
 #------------------------------------------
-try:
-    import pymel.core as pm
-except:
-    import maya.cmds as cmds
-    cmds.warning('Please install pymel')
+
+from pymel.core import *
 
 #selector
 def selector(lookName):
@@ -24,12 +21,12 @@ def selector(lookName):
     method = nameSplit[0]
     nameSel = nameSplit[1]
     if method == 'f':
-        sel = pm.ls("*{}*".format(nameSel), r=True)
+        sel = ls("*{}*".format(nameSel), r=True)
     elif method == 'fe':
-        sel = pm.ls("*{}".format(nameSel), r=True)
+        sel = ls("*{}".format(nameSel), r=True)
     elif method == 'fs':
-        sel = pm.ls("{}*".format(nameSel), r=True)
-    pm.select(sel)
+        sel = ls("{}*".format(nameSel), r=True)
+    select(sel)
 
 def oneLiner(nName, method='s'):
 
@@ -49,10 +46,10 @@ def oneLiner(nName, method='s'):
         nName = nName.replace('/a', '')
 
     if method == 's':
-        slt = pm.selected()
+        slt = selected()
     elif method == 'h':
         sltH = []
-        slt = pm.selected()
+        slt = selected()
         for i in slt:
             sltH.append(i)
             for child in reversed(i.listRelatives(ad=True, type='transform')):
@@ -60,7 +57,7 @@ def oneLiner(nName, method='s'):
         print(sltH)
         slt = sltH
     elif method == 'a':
-        slt = pm.ls()
+        slt = ls()
 
     # find numbering replacement
     def numReplace(numName, idx, start=1):
@@ -96,7 +93,7 @@ def oneLiner(nName, method='s'):
                 oldWord = wordSplit[0]
                 newWord = numReplace(wordSplit[1],slt.index(i))
                 try:
-                    pm.rename(i,i.replace(oldWord,newWord))
+                    rename(i,i.replace(oldWord,newWord))
                 except:
                     print("{} is not renamed".format(i))
 
@@ -104,13 +101,13 @@ def oneLiner(nName, method='s'):
             elif nName[0] == '-':
                 charToRemove = int(nName[1:len(nName)])
                 try:
-                    pm.rename(i, i[0:-charToRemove])
+                    rename(i, i[0:-charToRemove])
                 except:
                     print("{} is not renamed".format(i))
 
             elif nName[0] == '+':
                 charToRemove = int(nName[1:len(nName)])
-                pm.rename(i, i[charToRemove:len(curName)])m
+                rename(i, i[charToRemove:len(curName)])
 
             else:
                 newName = numReplace(nName, slt.index(i))
@@ -120,7 +117,7 @@ def oneLiner(nName, method='s'):
                     newName = newName.replace('!', curName)
                     print(newName)
                 try:
-                    pm.rename(i, newName)
+                    rename(i, newName)
                 except:
                     print("{} is not renamed".format(i))
 
@@ -143,10 +140,10 @@ def newNameView(nName, method='s'):
         nName = nName.replace('/a', '')
 
     if method == 's':
-        slt = pm.selected()
+        slt = selected()
     elif method == 'h':
         sltH = []
-        slt = pm.selected()
+        slt = selected()
         for i in slt:
             sltH.append(i)
             for child in reversed(i.listRelatives(ad=True, type='transform')):
@@ -154,7 +151,7 @@ def newNameView(nName, method='s'):
         #print(sltH)
         slt = sltH
     elif method == 'a':
-        slt = pm.ls()
+        slt = ls()
 
     # find numbering replacement
     def numReplace(numName, idx, start=1):
@@ -245,7 +242,7 @@ class oneLinerWindow(object):
                   '\n\nAdditional tool:'\
                   '\nadd f: at the start of the text to find objects within desired characters'\
                   '\nadd fe: at the start of the text to find objects that ends with the desired characters'\
-                  '\nadd fs: at the start of the text to find objects the starts with the desired scharacters'
+                  '\nadd f: at the start of the text to find objects the starts with the desired scharacters'
 
         column = columnLayout(cal='center', adj=True)
         separator(h=1, style='none')
@@ -255,6 +252,7 @@ class oneLinerWindow(object):
     def runFunc(self,*args):
         self.rnmQ = textField(self.rnmInput, text=True,q=True)
         oneLiner(self.rnmQ)
+        #window(self.windowName, e=True, vis=False) # 成功执行后隐藏窗口
 
 oneLinerWindow().show()
 """
