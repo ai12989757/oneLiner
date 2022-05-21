@@ -11,17 +11,17 @@ Simple Renamer Tool for Maya
 ## ENV
 
 - windows
-- python3.x
+- python2.x|python3.x
 - PySide2
-- maya2019-2023
-- pymel-1.2.0
+- maya2017+
+- pymel
 
 ## To be optimized
 
 - [ ] fix listView szie
 - [ ] support maya auto rename preview
 - [ ] add gif tips
-- [ ] Set hotkeys in the pop-up window during installation
+- [x] Set hotkeys in the pop-up window during installation
 
 ## Tutorials
 
@@ -29,9 +29,7 @@ Simple Renamer Tool for Maya
 
 - Download and unzip the oneLiner.zip
 - Drag and drop the "studiolibrary/install.mel" file onto the Maya viewport
-- Click the Studio Library icon on the shelf to run
-
-    **tips：It is recommended to set it as a Hotkey**
+- in the pop-up window, set the hotkeys and click "OK" to finish the installation
 
 ### Details
 

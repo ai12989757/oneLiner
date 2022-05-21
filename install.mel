@@ -1,51 +1,70 @@
 global string $gShelfTopLevel;
-string $currentShelf = `tabLayout -query -selectTab $gShelfTopLevel`;
-setParent $currentShelf;
+global string $scriptPATH ;
+
 string $asInstallScriptLocation=`asInstallScriptLocation`;
 if (`gmatch $asInstallScriptLocation "*\*"`)
 	$asInstallScriptLocation=`substituteAllString $asInstallScriptLocation "\\" "/"`;
-string $scriptName="oneLiner";
-string $sourceFile=$asInstallScriptLocation+"script/"+$scriptName+".py";
+string $scriptPATH=$asInstallScriptLocation+"script/";
 
-string $command = "import sys\n"
-+"PATH = '"+ $asInstallScriptLocation +"script/'\n"
-+"if PATH not in sys.path:\n"
-+"	sys.path.append(PATH)\n"
-+"\n"
-+"import MainWindow\n"
-+"\n"
-+"if(sys.version_info.major>=3):\n"
-+"    def reload(MODULE):\n"     
-+"        import importlib\n"
-+"        importlib.reload(MODULE)\n"
-+"reload(MainWindow)\n"
-+"\n"
-+"if __name__ == \"__main__\":\n"
-+"    try:\n"
-+"        olUI.close()\n"
-+"        olUI.deleteLater()\n"
-+"    except:\n"
-+"        pass\n"
-+"\n"
-+"    olUI = MainWindow.oneLinerUI()\n"
-+"    olUI.show()\n"
-;
-string $doubleClickCommand;
-if (!`file -q -ex $sourceFile`)
-	error ("Something went wrong, can not find: \""+$sourceFile+"\"");
-//--installTemplate pause--//
-shelfButton
-	-command $command
-	-doubleClickCommand $doubleClickCommand
-	-annotation "项目资产管理工具, 动画导入/导出, 缓存导入/导出"
-	-label $scriptName
-	-image ($asInstallScriptLocation+"images/icon/icon.png")
-	-image1 ($asInstallScriptLocation+"images/icon/icon.png")
-	-sourceType "python"
+string $oneLinerCommand = "import sys\n"+
+"PATH = '"+ $scriptPATH +"'\n"+
+"if PATH not in sys.path:\n"+
+"    sys.path.append(PATH)\n"+
+"\n"+
+"import MainWindow\n"+
+"\n"+
+"if(sys.version_info.major>=3):\n"+
+"    def reload(MODULE): \n"+
+"        import importlib\n"+
+"        importlib.reload(MODULE)\n"+
+"reload(MainWindow)\n"+
+"\n"+
+"if __name__ == \"__main__\":\n"+
+"    try:\n"+
+"        olUI.close()\n"+
+"        olUI.deleteLater()\n"+
+"    except:\n"+
+"        pass\n"+
+"\n"+
+"    olUI = MainWindow.oneLinerUI()\n"+
+"    olUI.show()\n"
 ;
 
-print ("\n// "+$scriptName+" has been added to current shelf.\n");
+if (`runTimeCommand -q -ex "oneLiner"`)
+{
+    runTimeCommand -e -commandLanguage "python" -command $oneLinerCommand "oneLiner";
+    print "// oneLiner更新完毕\n";
+}
+else 
+{
+	runTimeCommand -category "Custom Scripts" -commandLanguage "python" -command $oneLinerCommand  "oneLiner";
 
+	string $command = "import sys\n"
+	+"PATH = '"+ $scriptPATH +"'\n"
+	+"if PATH not in sys.path:\n"
+	+"	sys.path.append(PATH)\n"
+	+"\n"
+	+"import install_UI as UI\n"
+	+"\n"
+	+"if(sys.version_info.major>=3):\n"
+	+"    def reload(MODULE):\n"     
+	+"        import importlib\n"
+	+"        importlib.reload(MODULE)\n"
+	+"reload(UI)\n"
+	+"\n"
+	+"if __name__ == \"__main__\":\n"
+	+"    try:\n"
+	+"        win.close()\n"
+	+"        win.deleteLater()\n"
+	+"    except:\n"
+	+"        pass\n"
+	+"\n"
+	+"    win = UI.installWindow()\n"
+	+"    win.show()\n"
+	;
+
+	python($command);
+}
 global proc asInstallScriptLocator (){}
 
 global proc string asInstallScriptLocation ()

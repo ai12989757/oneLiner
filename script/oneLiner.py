@@ -12,8 +12,11 @@
 # - support python 3.x
 # - create new UI
 #------------------------------------------
-
-from pymel.core import *
+try:
+    import pymel.core as pm
+except:
+    import maya.cmds as cmds
+    cmds.warning('Please install pymel')
 
 #selector
 def selector(lookName):
@@ -21,12 +24,12 @@ def selector(lookName):
     method = nameSplit[0]
     nameSel = nameSplit[1]
     if method == 'f':
-        sel = ls("*{}*".format(nameSel), r=True)
+        sel = pm.ls("*{}*".format(nameSel), r=True)
     elif method == 'fe':
-        sel = ls("*{}".format(nameSel), r=True)
+        sel = pm.ls("*{}".format(nameSel), r=True)
     elif method == 'fs':
-        sel = ls("{}*".format(nameSel), r=True)
-    select(sel)
+        sel = pm.ls("{}*".format(nameSel), r=True)
+    pm.select(sel)
 
 def oneLiner(nName, method='s'):
 
@@ -46,10 +49,10 @@ def oneLiner(nName, method='s'):
         nName = nName.replace('/a', '')
 
     if method == 's':
-        slt = selected()
+        slt = pm.selected()
     elif method == 'h':
         sltH = []
-        slt = selected()
+        slt = pm.selected()
         for i in slt:
             sltH.append(i)
             for child in reversed(i.listRelatives(ad=True, type='transform')):
@@ -57,7 +60,7 @@ def oneLiner(nName, method='s'):
         print(sltH)
         slt = sltH
     elif method == 'a':
-        slt = ls()
+        slt = pm.ls()
 
     # find numbering replacement
     def numReplace(numName, idx, start=1):
@@ -93,7 +96,7 @@ def oneLiner(nName, method='s'):
                 oldWord = wordSplit[0]
                 newWord = numReplace(wordSplit[1],slt.index(i))
                 try:
-                    rename(i,i.replace(oldWord,newWord))
+                    pm.rename(i,i.replace(oldWord,newWord))
                 except:
                     print("{} is not renamed".format(i))
 
@@ -101,13 +104,13 @@ def oneLiner(nName, method='s'):
             elif nName[0] == '-':
                 charToRemove = int(nName[1:len(nName)])
                 try:
-                    rename(i, i[0:-charToRemove])
+                    pm.rename(i, i[0:-charToRemove])
                 except:
                     print("{} is not renamed".format(i))
 
             elif nName[0] == '+':
                 charToRemove = int(nName[1:len(nName)])
-                rename(i, i[charToRemove:len(curName)])
+                pm.rename(i, i[charToRemove:len(curName)])m
 
             else:
                 newName = numReplace(nName, slt.index(i))
@@ -117,7 +120,7 @@ def oneLiner(nName, method='s'):
                     newName = newName.replace('!', curName)
                     print(newName)
                 try:
-                    rename(i, newName)
+                    pm.rename(i, newName)
                 except:
                     print("{} is not renamed".format(i))
 
@@ -140,10 +143,10 @@ def newNameView(nName, method='s'):
         nName = nName.replace('/a', '')
 
     if method == 's':
-        slt = selected()
+        slt = pm.selected()
     elif method == 'h':
         sltH = []
-        slt = selected()
+        slt = pm.selected()
         for i in slt:
             sltH.append(i)
             for child in reversed(i.listRelatives(ad=True, type='transform')):
@@ -151,7 +154,7 @@ def newNameView(nName, method='s'):
         #print(sltH)
         slt = sltH
     elif method == 'a':
-        slt = ls()
+        slt = pm.ls()
 
     # find numbering replacement
     def numReplace(numName, idx, start=1):

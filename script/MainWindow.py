@@ -6,7 +6,7 @@ from PySide2.QtWidgets import *
 
 from shiboken2 import wrapInstance
 import maya.OpenMayaUI as omui
-from pymel.core import *
+import maya.cmds as cmds
 
 from main import Ui_Form
 from oneLiner import *
@@ -37,7 +37,7 @@ class oneLinerUI(Ui_Form, QWidget):
         self.lineEdit.customContextMenuRequested.connect(self.showHelpTips)      # 链接弹出菜单
         self.lineEdit.setFocus()                                                 # 激活lineEdit输入框
 
-        sel = [l.name() for l in ls(sl=True)]
+        sel = cmds.ls(sl=True,fl=True)
         if len(sel) == 1:
             self.resize(304, 44)
             self.lineEdit.setPlaceholderText("输入以重命名, 右击查看帮助")
@@ -79,28 +79,28 @@ class oneLinerUI(Ui_Form, QWidget):
             if len(newNameView(text)) == 1:
                 self.resize(304, 44)
             else:
-                if ls(sl=True):
+                if cmds.ls(sl=True):
                     self.resize(304, len(newNameView(text))*(18-(0.03*len(newNameView(text))))+24) 
                 else:
                     self.resize(304, 24)
         else:
-            self.listView.setModel(QStringListModel([l.name() for l in ls(sl=True)]))
+            self.listView.setModel(QStringListModel(cmds.ls(sl=True)))
 
     def runCommand(self):
         text = self.lineEdit.text()
         if text:
             self.lineEdit.clear()
             oneLiner(text)
-            self.listView.setModel(QStringListModel([l.name() for l in ls(sl=True)]))
-            if len(ls(sl=True,fl=True)) == 1:
+            self.listView.setModel(QStringListModel(cmds.ls(sl=True)))
+            if len(cmds.ls(sl=True,fl=True)) == 1:
                 self.resize(304, 44)
                 self.lineEdit.setPlaceholderText("输入以重命名, 右击查看帮助") 
-            elif len(ls(sl=True,fl=True)) == 0:
+            elif len(cmds.ls(sl=True,fl=True)) == 0:
                 self.resize(304, 24)
                 self.lineEdit.setPlaceholderText("请选择物体, 或键入f:/fs:/fe: + 字符 以选择相关对象") 
             else:
                 self.listView.setVisible(True)
-                self.resize(304, len(ls(sl=True,fl=True))*(18-(0.03*len(ls(sl=True,fl=True))))+24)                    
+                self.resize(304, len(cmds.ls(sl=True,fl=True))*(18-(0.03*len(cmds.ls(sl=True,fl=True))))+24)                    
                    
     def showHelpTips(self):
         menu = QMenu()
