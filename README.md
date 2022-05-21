@@ -22,6 +22,7 @@ Simple Renamer Tool for Maya
 - [ ] support maya auto rename preview
 - [ ] add gif tips
 - [x] Set hotkeys in the pop-up window during installation
+![11.gif](images/11.gif)
 
 ## Tutorials
 
