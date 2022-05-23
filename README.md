@@ -22,7 +22,6 @@ Simple Renamer Tool for Maya
 - [ ] support maya auto rename preview
 - [ ] add gif tips
 - [x] Set hotkeys in the pop-up window during installation
-![11.gif](images/11.gif)
 
 ## Tutorials
 
@@ -31,6 +30,7 @@ Simple Renamer Tool for Maya
 - Download and unzip the oneLiner.zip
 - Drag and drop the "studiolibrary/install.mel" file onto the Maya viewport
 - in the pop-up window, set the hotkeys and click "OK" to finish the installation
+![11.gif](images/11.gif)
 
 ### Details
 
