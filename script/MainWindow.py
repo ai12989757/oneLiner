@@ -8,14 +8,14 @@ from shiboken2 import wrapInstance
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
 
-from script.main import Ui_Form
-from script.oneLiner import *
+from main import Ui_Form
+from oneLiner import *
 
 import sys
 sys.path
 for i in sys.path:
     if 'oneLiner' in i:
-        oneLinerPath = i
+        oneLinerPath = i.replace('script/','')
 
 def maya_main_window():
     """
@@ -46,6 +46,7 @@ class oneLinerUI(Ui_Form, QWidget):
         sel = cmds.ls(sl=True,fl=True)
         if len(sel) == 1:
             self.resize(304, 44)
+            self.listView.setVisible(True)
             self.lineEdit.setPlaceholderText("输入以重命名, 右击查看帮助")
         elif len(sel) == 0:
             self.resize(304, 24)
@@ -53,6 +54,7 @@ class oneLinerUI(Ui_Form, QWidget):
             # 不显示listView
             self.listView.setVisible(False)
         else:
+            self.listView.setVisible(True)
             self.resize(330420, len(sel)*(18-(0.03*len(sel)))+24)                # 根据选中对象的数量动态调整弹窗的大小
             self.lineEdit.setPlaceholderText("输入以重命名, 右击查看帮助")
         self.lineEdit.textChanged.connect(self.changeList)                       # 输入框文本改变时，预览修改后的名称
@@ -100,6 +102,7 @@ class oneLinerUI(Ui_Form, QWidget):
             self.listView.setModel(QStringListModel(cmds.ls(sl=True)))
             if len(cmds.ls(sl=True,fl=True)) == 1:
                 self.resize(304, 44)
+                self.listView.setVisible(True)
                 self.lineEdit.setPlaceholderText("输入以重命名, 右击查看帮助") 
             elif len(cmds.ls(sl=True,fl=True)) == 0:
                 self.resize(304, 24)

@@ -7,7 +7,7 @@ from PySide2.QtWidgets import *
 from shiboken2 import wrapInstance
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
-from script.install_main import Ui_install
+from install_main import Ui_install
 
 def maya_main_window():
     """
