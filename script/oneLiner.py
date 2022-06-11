@@ -11,6 +11,7 @@
 # Change Log: 
 # - support python 3.x
 # - create new UI
+# - fix f:/fs:/fe: can't select all
 #------------------------------------------
 
 from pymel.core import *
