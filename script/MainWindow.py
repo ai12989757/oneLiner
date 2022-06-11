@@ -8,8 +8,14 @@ from shiboken2 import wrapInstance
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
 
-from main import Ui_Form
-from oneLiner import *
+from script.main import Ui_Form
+from script.oneLiner import *
+
+import sys
+sys.path
+for i in sys.path:
+    if 'oneLiner' in i:
+        oneLinerPath = i
 
 def maya_main_window():
     """
@@ -107,7 +113,8 @@ class oneLinerUI(Ui_Form, QWidget):
         
         tip1 = menu.addAction('符号表示字符:')
         tip1.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
-        tip1.setIcon(QIcon("D:/MEL/OneTools/tools/oneLiner/icon/help.png"))
+
+        tip1.setIcon(QIcon(oneLinerPath+"images/icon/help.png"))
         # menu.addAction('执行命令').triggered.connect(self.runCommand) # 执行命令
         menu.addAction('! = 原名称(可以是名称的一部分)')
         menu.addAction('# = 代表数字, 可以多个##代表多个数字')
@@ -116,13 +123,13 @@ class oneLinerUI(Ui_Form, QWidget):
         
         tip1 = menu.addAction('查找和替换:')
         tip1.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
-        tip1.setIcon(QIcon("D:/MEL/OneTools/tools/oneLiner/icon/search.png"))
+        tip1.setIcon(QIcon(oneLinerPath+"images/icon/search.png"))
         menu.addAction('" 原名称 " > " 新名称 " (可以是名称的一部分)')
         menu.addSeparator()
 
         tip1 = menu.addAction('删除字符:')
         tip1.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
-        tip1.setIcon(QIcon("D:/MEL/OneTools/tools/oneLiner/icon/clear.png"))
+        tip1.setIcon(QIcon(oneLinerPath+"images/icon/clear.png"))
         menu.addAction('" + 数字 " = 从开端删除几个字符')
         menu.addAction('" - 数字 " = 从末尾删除几个字符')
         menu.addAction('" -- 数字 " = 删到只剩几个字符(保留前面几个字符)')
@@ -130,7 +137,7 @@ class oneLinerUI(Ui_Form, QWidget):
 
         tip1 = menu.addAction('作用于选定对象/选定对象的层级/所有:')
         tip1.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
-        tip1.setIcon(QIcon("D:/MEL/OneTools/tools/oneLiner/icon/selection.png"))
+        tip1.setIcon(QIcon(oneLinerPath+"images/icon/selection.png"))
         menu.addAction('"/s" 默认设置, 基于当前选择对象进行重命名')
         menu.addAction('"/h" 选择对象的所有层级进行重命名')
         menu.addAction('"/a" 所有')
@@ -138,7 +145,7 @@ class oneLinerUI(Ui_Form, QWidget):
 
         tip1 = menu.addAction('附加功能:')
         tip1.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
-        tip1.setIcon(QIcon("D:/MEL/OneTools/tools/oneLiner/icon/ps.png"))
+        tip1.setIcon(QIcon(oneLinerPath+"images/icon/ps.png"))
         menu.addAction('"f:" 用法类似 ls "*name*"')
         menu.addAction('"fs:" 用法类似 ls "name*"')
         menu.addAction('"fe:" 用法类似 ls "*name"')
