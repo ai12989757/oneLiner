@@ -16,6 +16,11 @@ Simple Renamer Tool for Maya
 - maya2017+
 - pymel
 
+## changelog
+
+- fix f:/fs:/fe: can't select shadingEngine node
+- add /a usage
+
 ## To be optimized
 
 - [ ] fix listView szie

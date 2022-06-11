@@ -26,7 +26,7 @@ def selector(lookName):
         sel = ls("*{}".format(nameSel), r=True)
     elif method == 'fs':
         sel = ls("{}*".format(nameSel), r=True)
-    select(sel)
+    select(sel,ne=True)
 
 def oneLiner(nName, method='s'):
 
@@ -239,6 +239,7 @@ class oneLinerWindow(object):
                   '\n//(number) = define the start number of numbering from #' \
                   '\n/s = selected only (this is default, you dont have to type this)' \
                   '\n/h = add items from all hierarchy descendants of selected items' \
+                  '\n/a = add items from all descendants of all items' \
                   '\n\nAdditional tool:'\
                   '\nadd f: at the start of the text to find objects within desired characters'\
                   '\nadd fe: at the start of the text to find objects that ends with the desired characters'\

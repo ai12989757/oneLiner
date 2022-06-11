@@ -128,11 +128,12 @@ class oneLinerUI(Ui_Form, QWidget):
         menu.addAction('" -- 数字 " = 删到只剩几个字符(保留前面几个字符)')
         menu.addSeparator()
 
-        tip1 = menu.addAction('选择对象/层级:')
+        tip1 = menu.addAction('作用于选定对象/选定对象的层级/所有:')
         tip1.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         tip1.setIcon(QIcon("D:/MEL/OneTools/tools/oneLiner/icon/selection.png"))
         menu.addAction('"/s" 默认设置, 基于当前选择对象进行重命名')
         menu.addAction('"/h" 选择对象的所有层级进行重命名')
+        menu.addAction('"/a" 所有')
         menu.addSeparator()
 
         tip1 = menu.addAction('附加功能:')
