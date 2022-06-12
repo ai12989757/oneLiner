@@ -20,6 +20,7 @@ Simple Renamer Tool for Maya
 
 - fix f:/fs:/fe: can't select shadingEngine node
 - add /a usage
+- fix shortcut key can't override
 
 ## To be optimized
 

@@ -30,41 +30,55 @@ string $oneLinerCommand = "import sys\n"+
 "    olUI.show()\n"
 ;
 
-if (`runTimeCommand -q -ex "oneLiner"`)
+if(`runTimeCommand -q -ex "oneLiner"`)
 {
-    runTimeCommand -e -commandLanguage "python" -command $oneLinerCommand "oneLiner";
-    print "// oneLiner更新完毕\n";
-}
-else 
-{
-	runTimeCommand -category "Custom Scripts" -commandLanguage "python" -command $oneLinerCommand  "oneLiner";
+	string $hotkeyEditorPaht = `internalVar -mayaInstallDir`+"/scripts/startup/hotkeyEditor.mel";
+	$fileId=`fopen $hotkeyEditorPaht "r"`;
+	string $nextLine = `fgetline $fileId`;
+	string $allTXT;
+	while (size($nextLine)>0) 
+	{
+		$allTXT = $allTXT + $nextLine;
+		$nextLine = `fgetline $fileId`;
+	}
+	eval($allTXT);
 
-	string $command = "import sys\n"
-	+"PATH = '"+ $scriptPATH +"'\n"
-	+"if PATH not in sys.path:\n"
-	+"	sys.path.append(PATH)\n"
-	+"\n"
-	+"import install_UI as UI\n"
-	+"\n"
-	+"if(sys.version_info.major>=3):\n"
-	+"    def reload(MODULE):\n"     
-	+"        import importlib\n"
-	+"        importlib.reload(MODULE)\n"
-	+"reload(UI)\n"
-	+"\n"
-	+"if __name__ == \"__main__\":\n"
-	+"    try:\n"
-	+"        win.close()\n"
-	+"        win.deleteLater()\n"
-	+"    except:\n"
-	+"        pass\n"
-	+"\n"
-	+"    win = UI.installWindow()\n"
-	+"    win.show()\n"
-	;
-
-	python($command);
+	for($in in getAllHotkeys("oneLiner"))
+	{
+		removeHotkey($in);
+	}
+	deleteRunTimeCommand("oneLiner");
 }
+
+runTimeCommand -category "Custom Scripts" -commandLanguage "python" -command $oneLinerCommand  "oneLiner";
+
+// 安装界面
+string $command = "import sys\n"
++"PATH = '"+ $scriptPATH +"'\n"
++"if PATH not in sys.path:\n"
++"	sys.path.append(PATH)\n"
++"\n"
++"import install_UI as UI\n"
++"\n"
++"if(sys.version_info.major>=3):\n"
++"    def reload(MODULE):\n"     
++"        import importlib\n"
++"        importlib.reload(MODULE)\n"
++"reload(UI)\n"
++"\n"
++"if __name__ == \"__main__\":\n"
++"    try:\n"
++"        win.close()\n"
++"        win.deleteLater()\n"
++"    except:\n"
++"        pass\n"
++"\n"
++"    win = UI.installWindow()\n"
++"    win.show()\n"
+;
+
+python($command);
+
 global proc asInstallScriptLocator (){}
 
 global proc string asInstallScriptLocation ()

@@ -7,6 +7,7 @@ from PySide2.QtWidgets import *
 from shiboken2 import wrapInstance
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
+import maya.mel as mel
 from install_main import Ui_install
 
 def maya_main_window():
@@ -32,9 +33,10 @@ class installWindow(Ui_install, QWidget):
         self.lineEdit.setReadOnly(True)
         self.lineEdit.setFocus()
         self.pushButton_2.clicked.connect(self.on_click)
-        self.pushButton.clicked.connect(self.close)
+        self.pushButton.clicked.connect(self.off_click)
         self.setFixedSize(self.width(), self.height())
-    # on_click()函数
+
+    # 确定按钮
     def on_click(self):
         global HotKeys
 
@@ -47,10 +49,17 @@ class installWindow(Ui_install, QWidget):
         else:
             keyShortcut = HotKeys
   
-        cmds.nameCommand('oneLinerNameCommand',annotation='oneLiner',sourceType='mel',command='oneLiner')
+        cmds.nameCommand('oneLinerNameCommand',annotation='renameTool',sourceType='mel',command='oneLiner')
         cmds.hotkey(name='oneLinerNameCommand',keyShortcut=keyShortcut,sht=("Shift" in HotKeys),ctl=("Control" in HotKeys),alt=("Alt" in HotKeys))
-        print(end='// 结果: 安装完成,快捷键为: '+HotKeys)
+        cmds.savePrefs( hotkeys=True )
         self.close()
+        print(end='// 结果: 安装完成,快捷键为: '+HotKeys)
+
+
+    # 取消按钮
+    def off_click(self):
+        self.close()
+        print(end='// 提示: 请稍后在热键编辑器里设置快捷键')
 
     def keyPressEvent(self, keyevent):
         # 返回按键的真实名称
