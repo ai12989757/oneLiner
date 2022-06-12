@@ -12,6 +12,8 @@
 # - support python 3.x
 # - create new UI
 # - fix f:/fs:/fe: can't select all
+# - - + don't rename shape name
+# - fix - + can't rename shadingEngine node
 #------------------------------------------
 
 from pymel.core import *
@@ -100,15 +102,17 @@ def oneLiner(nName, method='s'):
 
             # check if the first character is '-' or '+', remove character method
             elif nName[0] == '-':
-                charToRemove = int(nName[1:len(nName)])
-                try:
-                    rename(i, i[0:-charToRemove])
-                except:
-                    print("{} is not renamed".format(i))
+                if len(ls(curName,shapes=True)) == 0:
+                    charToRemove = int(nName[1:len(nName)])
+                    try:
+                        rename(i, curName[0:-charToRemove])
+                    except:
+                        print("{} is not renamed".format(i))
 
             elif nName[0] == '+':
-                charToRemove = int(nName[1:len(nName)])
-                rename(i, i[charToRemove:len(curName)])
+                if len(ls(curName,shapes=True)) == 0:
+                    charToRemove = int(nName[1:len(nName)])
+                    rename(i, curName[charToRemove:len(curName)])
 
             else:
                 newName = numReplace(nName, slt.index(i))
@@ -192,12 +196,12 @@ def newNameView(nName, method='s'):
                 changeName.append(newName)
             # check if the first character is '-' or '+', remove character method
             elif nName[0] == '-':
-                charToRemove = int(nName[1:len(nName)])
-                newName = i[0:-charToRemove]
+                charToRemove = int(nName.replace(nName[0],''))
+                newName = curName[0:-charToRemove]
                 changeName.append(newName)
             elif nName[0] == '+':
-                charToRemove = int(nName[1:len(nName)])
-                newName = i[charToRemove:len(curName)]
+                charToRemove = int(nName.replace(nName[0],''))
+                newName = curName[charToRemove:len(curName)]
                 changeName.append(newName)
             else:
                 newName = numReplace(nName, slt.index(i))

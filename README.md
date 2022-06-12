@@ -21,6 +21,8 @@ Simple Renamer Tool for Maya
 - fix f:/fs:/fe: can't select shadingEngine node
 - add /a usage
 - fix shortcut key can't override
+- use - + don't rename shape name
+- fix - + can't rename shadingEngine node
 
 ## To be optimized
 
