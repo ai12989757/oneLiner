@@ -133,9 +133,9 @@ class oneLinerUI(Ui_Form, QWidget):
         tip1 = menu.addAction('删除字符:')
         tip1.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         tip1.setIcon(QIcon(oneLinerPath+"images/icon/clear.png"))
-        menu.addAction('" + 数字 " = 从开端删除几个字符')
-        menu.addAction('" - 数字 " = 从末尾删除几个字符')
-        menu.addAction('" -- 数字 " = 删到只剩几个字符(保留前面几个字符)')
+        menu.addAction('" + 数字 " 从开端删除几个字符')
+        menu.addAction('" - 数字 " 从末尾删除几个字符')
+        menu.addAction('" -- 数字 " 删到只剩几个字符(保留前面几个字符)')
         menu.addSeparator()
 
         tip1 = menu.addAction('作用于选定对象/选定对象的层级/所有:')
@@ -143,15 +143,15 @@ class oneLinerUI(Ui_Form, QWidget):
         tip1.setIcon(QIcon(oneLinerPath+"images/icon/selection.png"))
         menu.addAction('"/s" 默认设置, 基于当前选择对象进行重命名')
         menu.addAction('"/h" 选择对象的所有层级进行重命名')
-        menu.addAction('"/a" 所有')
+        menu.addAction('"/a" 作用于场景中的所有对象')
         menu.addSeparator()
 
         tip1 = menu.addAction('附加功能:')
         tip1.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
         tip1.setIcon(QIcon(oneLinerPath+"images/icon/ps.png"))
-        menu.addAction('"f:" 用法类似 ls "*name*"')
-        menu.addAction('"fs:" 用法类似 ls "name*"')
-        menu.addAction('"fe:" 用法类似 ls "*name"')
+        menu.addAction('"f:xxx" 用法类似 ls "*name*" , 选中名字里含有xxx的对象')
+        menu.addAction('"fs:xxx" 用法类似 ls "name*" , 选中名字前端是xxx的对象')
+        menu.addAction('"fe:xxx" 用法类似 ls "*name" , 选中名字末尾是xxx的对象')
         menu.exec_(QCursor.pos())
 
 if __name__ == "__main__":
