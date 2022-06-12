@@ -196,11 +196,11 @@ def newNameView(nName, method='s'):
                 changeName.append(newName)
             # check if the first character is '-' or '+', remove character method
             elif nName[0] == '-':
-                charToRemove = int(nName.replace(nName[0],''))
+                charToRemove = int(nName[1:len(nName)])
                 newName = curName[0:-charToRemove]
                 changeName.append(newName)
             elif nName[0] == '+':
-                charToRemove = int(nName.replace(nName[0],''))
+                charToRemove = int(nName[1:len(nName)])
                 newName = curName[charToRemove:len(curName)]
                 changeName.append(newName)
             else:
