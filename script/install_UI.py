@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+from lib2to3.pgen2.literals import evalString
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -49,12 +50,51 @@ class installWindow(Ui_install, QWidget):
         else:
             keyShortcut = HotKeys
   
+        
+        print(end='// 结果: 安装完成,快捷键为: '+HotKeys)
+
+        # 设置hotkey
+        if cmds.hotkeySet( q=True, cu=True ) =='Maya_Default':
+            if cmds.hotkeySet("OneHotKeys", ex=True): 
+                cmds.hotkeySet("OneHotKeys", e=True ,cu=True)
+            else:
+                cmds.hotkeySet("OneHotKeys" ,cu=True)
+
+        # 读取 hotkeyEditor.mel 文件
+        # C:\Program Files\Autodesk\Maya2022\scripts\startup\hotkeyEditor.mel
+        hotkeyEditorPath = cmds.internalVar(mid=True) + "/scripts/startup/hotkeyEditor.mel"
+        evalString = "source \"" + hotkeyEditorPath + "\""
+        mel.eval(evalString)
+
+        # 检索是否已经存在热键
+        sht = ''
+        ctl = ''
+        alt = ''
+        k = ''
+        if "Shift" in HotKeys:
+            sht = 'Shift'
+        if "Control" in HotKeys:
+            ctl = 'Ctrl+'
+        if "Alt" in HotKeys:
+            alt = 'Alt+'
+        if sht == '' and ctl == '' and alt == '':
+            k = keyShortcut.lower()
+        elif len(sht) > 0 and ctl == '' and alt == '':
+            # 大写字母
+            k = keyShortcut.upper()
+
+        onelinerHotkey = ctl+alt+k
+        if cmds.hotkey( onelinerHotkey, query=True ):
+            evalString = 'removeHotkey("' + onelinerHotkey + '")'
+            mel.eval(evalString)
+
+        # 设置热键
         cmds.nameCommand('oneLinerNameCommand',annotation='renameTool',sourceType='mel',command='oneLiner')
         cmds.hotkey(name='oneLinerNameCommand',keyShortcut=keyShortcut,sht=("Shift" in HotKeys),ctl=("Control" in HotKeys),alt=("Alt" in HotKeys))
         cmds.savePrefs( hotkeys=True )
-        self.close()
-        print(end='// 结果: 安装完成,快捷键为: '+HotKeys)
 
+        # 关闭窗口
+        self.close()
 
     # 取消按钮
     def off_click(self):
