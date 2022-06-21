@@ -77,7 +77,8 @@ class installWindow(Ui_install, QWidget):
             ctl = 'Ctrl+'
         if "Alt" in HotKeys:
             alt = 'Alt+'
-        if sht == '' and ctl == '' and alt == '':
+        if sht == '' and ctl == '' and alt == '':\
+            # 小写字母
             k = keyShortcut.lower()
         elif len(sht) > 0 and ctl == '' and alt == '':
             # 大写字母
