@@ -60,7 +60,7 @@ class installWindow(Ui_install, QWidget):
             else:
                 cmds.hotkeySet("OneHotKeys" ,cu=True)
 
-        # 读取 hotkeyEditor.mel 文件
+        # 读取 hotkeyEditor.mel 文件, 并加载
         # C:\Program Files\Autodesk\Maya2022\scripts\startup\hotkeyEditor.mel
         hotkeyEditorPath = cmds.internalVar(mid=True) + "/scripts/startup/hotkeyEditor.mel"
         evalString = "source \"" + hotkeyEditorPath + "\""
@@ -73,10 +73,13 @@ class installWindow(Ui_install, QWidget):
         k = ''
         if "Shift" in HotKeys:
             sht = 'Shift'
+
         if "Control" in HotKeys:
             ctl = 'Ctrl+'
+
         if "Alt" in HotKeys:
             alt = 'Alt+'
+
         if sht == '' and ctl == '' and alt == '':\
             # 小写字母
             k = keyShortcut.lower()
@@ -84,6 +87,7 @@ class installWindow(Ui_install, QWidget):
             # 大写字母
             k = keyShortcut.upper()
 
+        # 如果快捷键已存在则删除
         onelinerHotkey = ctl+alt+k
         if cmds.hotkey( onelinerHotkey, query=True ):
             evalString = 'removeHotkey("' + onelinerHotkey + '")'
