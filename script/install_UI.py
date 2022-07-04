@@ -59,12 +59,6 @@ class installWindow(Ui_install, QWidget):
             else:
                 cmds.hotkeySet("OneHotKeys" ,cu=True)
 
-        # 读取 hotkeyEditor.mel 文件, 并加载
-        # C:\Program Files\Autodesk\Maya2022\scripts\startup\hotkeyEditor.mel
-        hotkeyEditorPath = cmds.internalVar(mid=True) + "/scripts/startup/hotkeyEditor.mel"
-        evalString = "source \"" + hotkeyEditorPath + "\""
-        mel.eval(evalString)
-
         # 检索是否已经存在热键
         sht = ''
         ctl = ''
