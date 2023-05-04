@@ -53,6 +53,10 @@ class oneLinerUI(Ui_Form, QWidget):
             self.lineEdit.setPlaceholderText("请选择物体, 或键入f:/fs:/fe: + 字符 以选择相关对象")
             # 不显示listView
             self.listView.setVisible(False)
+        elif len(sel) > 20:
+            self.listView.setVisible(True)
+            self.resize(330420, 20*(18-(0.03*len(sel)))+24)                # 根据选中对象的数量动态调整弹窗的大小
+            self.lineEdit.setPlaceholderText("输入以重命名, 右击查看帮助")
         else:
             self.listView.setVisible(True)
             self.resize(330420, len(sel)*(18-(0.03*len(sel)))+24)                # 根据选中对象的数量动态调整弹窗的大小
@@ -60,7 +64,11 @@ class oneLinerUI(Ui_Form, QWidget):
         self.lineEdit.textChanged.connect(self.changeList)                       # 输入框文本改变时，预览修改后的名称
 
         # ListView Set
-        self.listView.setModel(QStringListModel(sel))                            # 将选中物体的名称添加到listView中
+        # 如果选中的物体数量大于20, 则显示只显示19个, 否则显示全部，且在最后一行添加···
+        if len(sel) > 20:
+            self.listView.setModel(QStringListModel(sel[0:19]+['······']))          # 将选中物体的名称添加到listView中
+        else:
+            self.listView.setModel(QStringListModel(sel))                            # 将选中物体的名称添加到listView中
         self.listView.setEditTriggers(QAbstractItemView.NoEditTriggers)          # 列表不可操作
         self.listView.setSelectionMode(QAbstractItemView.NoSelection)            # 不可选中
         self.listView.setFocusPolicy(Qt.NoFocus)                                 # 不可活动
@@ -88,7 +96,10 @@ class oneLinerUI(Ui_Form, QWidget):
                 self.resize(304, 44)
             else:
                 if cmds.ls(sl=True):
-                    self.resize(304, len(newNameView(text))*(18-(0.03*len(newNameView(text))))+24) 
+                    if len(cmds.ls(sl=True,fl=True)) > 20:
+                        self.resize(304, 20*(18-(0.03*len(newNameView(text))))+24)
+                    else:
+                        self.resize(304, len(newNameView(text))*(18-(0.03*len(newNameView(text))))+24) 
                 else:
                     self.resize(304, 24)
         else:
@@ -109,7 +120,10 @@ class oneLinerUI(Ui_Form, QWidget):
                 self.lineEdit.setPlaceholderText("请选择物体, 或键入f:/fs:/fe: + 字符 以选择相关对象") 
             else:
                 self.listView.setVisible(True)
-                self.resize(304, len(cmds.ls(sl=True,fl=True))*(18-(0.03*len(cmds.ls(sl=True,fl=True))))+24)                    
+                if len(cmds.ls(sl=True,fl=True)) > 20:
+                    self.resize(304, 20*(18-(0.03*len(cmds.ls(sl=True,fl=True))))+24)
+                else:
+                    self.resize(304, len(cmds.ls(sl=True,fl=True))*(18-(0.03*len(cmds.ls(sl=True,fl=True))))+24)                    
                    
     def showHelpTips(self):
         menu = QMenu()
