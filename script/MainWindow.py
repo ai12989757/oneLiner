@@ -1,5 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+# changelog:
+# 2023-05-04[11:14:00]:rebuild by yibai
+# 修复重命名对象过多卡顿问题，只显示前19个选中对象的重命名结果，最后一行显示······
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
