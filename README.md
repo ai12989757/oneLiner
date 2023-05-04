@@ -16,19 +16,11 @@ Simple Renamer Tool for Maya
 - maya2017+
 - pymel
 
-## changelog
-
-- fix f:/fs:/fe: can't select shadingEngine node
-- add /a usage
-- fix shortcut key can't override
-- use - + don't rename shape name
-- fix - + can't rename shadingEngine node
-
 ## To be optimized
 
-- [ ] fix listView szie
+- [x] fix listView szie
 - [ ] support maya auto rename preview
-- [ ] add gif tips
+- [ ] ~~add gif tips~~
 - [x] Set hotkeys in the pop-up window during installation
 
 ## Tutorials
