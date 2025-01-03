@@ -30,23 +30,8 @@ string $oneLinerCommand = "import sys\n"+
 "    olUI.show()\n"
 ;
 
-string $hotkeyEditorPath = `internalVar -mayaInstallDir`+"/scripts/startup/hotkeyEditor.mel";
-$fileId=`fopen $hotkeyEditorPath "r"`;
-string $nextLine = `fgetline $fileId`;
-string $allTXT;
-while (size($nextLine)>0) 
-{
-	$allTXT = $allTXT + $nextLine;
-	$nextLine = `fgetline $fileId`;
-}
-eval($allTXT);
-
-for($in in getAllHotkeys("oneLiner"))
-{
-	removeHotkey($in);
-}
-
-if(`runTimeCommand -q -ex "oneLiner"`) deleteRunTimeCommand("oneLiner");
+if(`runTimeCommand -q -ex "oneLiner"`)
+    runTimeCommand -e -delete "oneLiner";
 runTimeCommand -category "Custom Scripts" -commandLanguage "python" -command $oneLinerCommand  "oneLiner";
 
 // 安装界面

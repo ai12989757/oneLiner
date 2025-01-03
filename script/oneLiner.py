@@ -16,7 +16,7 @@
 # - fix - + can't rename shadingEngine node
 #------------------------------------------
 
-from pymel.core import *
+import maya.cmds as cmds
 
 #selector
 def selector(lookName):
@@ -24,12 +24,12 @@ def selector(lookName):
     method = nameSplit[0]
     nameSel = nameSplit[1]
     if method == 'f':
-        sel = ls("*{}*".format(nameSel), r=True)
+        sel = cmds.ls("*{}*".format(nameSel), r=True)
     elif method == 'fe':
-        sel = ls("*{}".format(nameSel), r=True)
+        sel = cmds.ls("*{}".format(nameSel), r=True)
     elif method == 'fs':
-        sel = ls("{}*".format(nameSel), r=True)
-    select(sel,ne=True)
+        sel = cmds.ls("{}*".format(nameSel), r=True)
+    cmds.select(sel, ne=True)
 
 def oneLiner(nName, method='s'):
 
@@ -49,18 +49,18 @@ def oneLiner(nName, method='s'):
         nName = nName.replace('/a', '')
 
     if method == 's':
-        slt = selected()
+        slt = cmds.ls(selection=True)
     elif method == 'h':
         sltH = []
-        slt = selected()
+        slt = cmds.ls(selection=True)
         for i in slt:
             sltH.append(i)
-            for child in reversed(i.listRelatives(ad=True, type='transform')):
+            for child in reversed(cmds.listRelatives(i, ad=True, type='transform')):
                 sltH.append(child)
         print(sltH)
         slt = sltH
     elif method == 'a':
-        slt = ls()
+        slt = cmds.ls()
 
     # find numbering replacement
     def numReplace(numName, idx, start=1):
@@ -87,32 +87,29 @@ def oneLiner(nName, method='s'):
     if nName.find(':') == -1:
         for i in slt:  # for every object in selection list
             # check if there is '>' that represents the replacement method
-            if i.name().find('|') !=-1:
-                curName = i.name().split('|')[-1]
-            else:
-                curName = i.name()
+            curName = cmds.ls(i, long=True)[0].split('|')[-1]
             if nName.find('>') != -1:
                 wordSplit = nName.split('>')
                 oldWord = wordSplit[0]
-                newWord = numReplace(wordSplit[1],slt.index(i))
+                newWord = numReplace(wordSplit[1], slt.index(i))
                 try:
-                    rename(i,i.replace(oldWord,newWord))
+                    cmds.rename(i, curName.replace(oldWord, newWord))
                 except:
                     print("{} is not renamed".format(i))
 
             # check if the first character is '-' or '+', remove character method
             elif nName[0] == '-':
-                if len(ls(curName,shapes=True)) == 0:
+                if len(cmds.ls(curName, shapes=True)) == 0:
                     charToRemove = int(nName[1:len(nName)])
                     try:
-                        rename(i, curName[0:-charToRemove])
+                        cmds.rename(i, curName[0:-charToRemove])
                     except:
                         print("{} is not renamed".format(i))
 
             elif nName[0] == '+':
-                if len(ls(curName,shapes=True)) == 0:
+                if len(cmds.ls(curName, shapes=True)) == 0:
                     charToRemove = int(nName[1:len(nName)])
-                    rename(i, curName[charToRemove:len(curName)])
+                    cmds.rename(i, curName[charToRemove:len(curName)])
 
             else:
                 newName = numReplace(nName, slt.index(i))
@@ -122,7 +119,7 @@ def oneLiner(nName, method='s'):
                     newName = newName.replace('!', curName)
                     print(newName)
                 try:
-                    rename(i, newName)
+                    cmds.rename(i, newName)
                 except:
                     print("{} is not renamed".format(i))
 
@@ -145,18 +142,18 @@ def newNameView(nName, method='s'):
         nName = nName.replace('/a', '')
 
     if method == 's':
-        slt = selected()
+        slt = cmds.ls(selection=True)
     elif method == 'h':
         sltH = []
-        slt = selected()
+        slt = cmds.ls(selection=True)
         for i in slt:
             sltH.append(i)
-            for child in reversed(i.listRelatives(ad=True, type='transform')):
+            for child in reversed(cmds.listRelatives(i, ad=True, type='transform')):
                 sltH.append(child)
         #print(sltH)
         slt = sltH
     elif method == 'a':
-        slt = ls()
+        slt = cmds.ls()
 
     # find numbering replacement
     def numReplace(numName, idx, start=1):
@@ -183,16 +180,12 @@ def newNameView(nName, method='s'):
     if nName.find(':') == -1:
         for i in slt:  # for every object in selection list
             # check if there is '>' that represents the replacement method
-            if i.name().find('|') !=-1:
-                curName = i.name().split('|')[-1]
-            else:
-                curName = i.name()
-                
+            curName = cmds.ls(i, long=True)[0].split('|')[-1]
             if nName.find('>') != -1:
                 wordSplit = nName.split('>')
                 oldWord = wordSplit[0]
-                newWord = numReplace(wordSplit[1],slt.index(i))
-                newName = i.replace(oldWord,newWord)
+                newWord = numReplace(wordSplit[1], slt.index(i))
+                newName = curName.replace(oldWord, newWord)
                 changeName.append(newName)
             # check if the first character is '-' or '+', remove character method
             elif nName[0] == '-':
@@ -212,53 +205,3 @@ def newNameView(nName, method='s'):
                 changeName.append(newName)
         
     return changeName
-"""
-### UI
-
-class oneLinerWindow(object):
-
-    windowName = "OneLiner"
-
-    def show(self):
-
-        if window(self.windowName, q=True, exists=True):
-            deleteUI(self.windowName)
-            windowPref(self.windowName, remove=True)
-        window(self.windowName, s=True, w=300, h=10, rtf=False, tb=True)
-
-        self.buildUI()
-
-        showWindow()
-
-    def buildUI(self):
-        toolTip = 'Character replacement symbols:' \
-                  '\n! = old name' \
-                  '\n# = numbering based on selection, add more # for more digits' \
-                  '\n@ = alphabetical numbering based on selection' \
-                  '\n\nFind and replace method:' \
-                  '\n"oldName">"newName" (without quotes)' \
-                  '\n\nRemove first or last character(s):' \
-                  '\n-(amount of characters to remove) = removes specific amounts of characters from last character'\
-                  '\n+(amount of characters to remove) = removes specific amounts of characters from first character' \
-                  '\n\nAdd these symbols at the end to change the options:' \
-                  '\n//(number) = define the start number of numbering from #' \
-                  '\n/s = selected only (this is default, you dont have to type this)' \
-                  '\n/h = add items from all hierarchy descendants of selected items' \
-                  '\n/a = add items from all descendants of all items' \
-                  '\n\nAdditional tool:'\
-                  '\nadd f: at the start of the text to find objects within desired characters'\
-                  '\nadd fe: at the start of the text to find objects that ends with the desired characters'\
-                  '\nadd f: at the start of the text to find objects the starts with the desired scharacters'
-
-        column = columnLayout(cal='center', adj=True)
-        separator(h=1, style='none')
-        self.rnmInput = textField(ec=self.runFunc, aie=True, w=200, ann=toolTip)
-        separator(h=1, style='none')
-
-    def runFunc(self,*args):
-        self.rnmQ = textField(self.rnmInput, text=True,q=True)
-        oneLiner(self.rnmQ)
-        #window(self.windowName, e=True, vis=False) # 成功执行后隐藏窗口
-
-oneLinerWindow().show()
-"""

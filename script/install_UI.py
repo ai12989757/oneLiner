@@ -1,14 +1,21 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+try:
+    from shiboken6 import wrapInstance
+except ImportError:
+    from shiboken2 import wrapInstance
+try:
+    from PySide6.QtCore import *
+    from PySide6.QtGui import *
+    from PySide6.QtWidgets import *
+except ImportError:
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
 
-from shiboken2 import wrapInstance
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
 import maya.mel as mel
-from install_main import Ui_install
 
 def maya_main_window():
     """
@@ -25,13 +32,25 @@ kyes = []
 # 定义全局变量
 global HotKeys
 
-class installWindow(Ui_install, QWidget):
+class installWindow(QWidget):
     def __init__(self, parent=maya_main_window()):
         super(installWindow, self).__init__(parent)
-        self.setupUi(self)
         self.setWindowFlags(Qt.Window)
+        self.setWindowTitle('设置快捷键')
+        self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint | Qt.WindowTitleHint)
+        self.resize(240, 80)
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
+        self.lineEdit = QLineEdit()
         self.lineEdit.setReadOnly(True)
         self.lineEdit.setFocus()
+        self.layout.addWidget(self.lineEdit)
+        self.buttonLayout = QHBoxLayout()
+        self.layout.addLayout(self.buttonLayout)
+        self.pushButton = QPushButton('取消')
+        self.pushButton_2 = QPushButton('确定')
+        self.buttonLayout.addWidget(self.pushButton)
+        self.buttonLayout.addWidget(self.pushButton_2)
         self.pushButton_2.clicked.connect(self.on_click)
         self.pushButton.clicked.connect(self.off_click)
         self.setFixedSize(self.width(), self.height())
@@ -50,14 +69,8 @@ class installWindow(Ui_install, QWidget):
             keyShortcut = HotKeys
   
         
-        print(end='// 结果: 安装完成,快捷键为: '+HotKeys)
 
-        # 设置hotkey
-        if cmds.hotkeySet( q=True, cu=True ) =='Maya_Default':
-            if cmds.hotkeySet("OneHotKeys", ex=True): 
-                cmds.hotkeySet("OneHotKeys", e=True ,cu=True)
-            else:
-                cmds.hotkeySet("OneHotKeys" ,cu=True)
+
 
         # 检索是否已经存在热键
         sht = ''
@@ -80,19 +93,24 @@ class installWindow(Ui_install, QWidget):
             # 大写字母
             k = keyShortcut.upper()
 
-        # 如果快捷键已存在则删除
-        onelinerHotkey = ctl+alt+k
-        if cmds.hotkey( onelinerHotkey, query=True ):
-            evalString = 'removeHotkey("' + onelinerHotkey + '")'
-            mel.eval(evalString)
+        # # 如果快捷键已存在则删除
+        # onelinerHotkey = ctl+alt+k
+        # if cmds.hotkey( onelinerHotkey, query=True):
+        #     evalString = 'removeHotkey("' + onelinerHotkey + '")'
+        #     mel.eval(evalString)
 
         # 设置热键
         cmds.nameCommand('oneLinerNameCommand',annotation='renameTool',sourceType='mel',command='oneLiner')
+        if cmds.hotkey(keyShortcut, q=True, n=True, sht=("Shift" in HotKeys),ctl=("Control" in HotKeys),alt=("Alt" in HotKeys)):
+            cmds.warning('热键已存在，请手动在热键编辑器里设置快捷键')
+        else:
+            print(end='// 结果: 安装完成,快捷键为: '+HotKeys)
         cmds.hotkey(name='oneLinerNameCommand',keyShortcut=keyShortcut,sht=("Shift" in HotKeys),ctl=("Control" in HotKeys),alt=("Alt" in HotKeys))
-        cmds.savePrefs( hotkeys=True )
+        #cmds.savePrefs( hotkeys=True )
 
         # 关闭窗口
         self.close()
+        
 
     # 取消按钮
     def off_click(self):
