@@ -19,8 +19,8 @@ Simple Renamer Tool for Maya
 ## To be optimized
 
 - [x] fix listView szie
-- [ ] support maya auto rename preview
-- [ ] ~~add gif tips~~
+- [x] support maya auto rename preview
+- [x] ~~add gif tips~~
 - [x] Set hotkeys in the pop-up window during installation
 
 ## Tutorials

@@ -18,6 +18,18 @@
 
 import maya.cmds as cmds
 
+# region 撤回块
+# 定义一个装饰器，用来存放撤回块
+def undoBlock(func):
+    def wrapper(*args, **kwargs):
+        # 开始撤回块
+        cmds.undoInfo(openChunk=True)
+        # 执行函数
+        func(*args, **kwargs)
+        # 结束撤回块
+        cmds.undoInfo(closeChunk=True)
+    return wrapper
+
 #selector
 def selector(lookName):
     nameSplit = lookName.split(':')
@@ -31,6 +43,7 @@ def selector(lookName):
         sel = cmds.ls("{}*".format(nameSel), r=True)
     cmds.select(sel, ne=True)
 
+@undoBlock
 def oneLiner(nName, method='s'):
 
     # get selection method
@@ -205,3 +218,38 @@ def newNameView(nName, method='s'):
                 changeName.append(newName)
         
     return changeName
+
+@undoBlock
+def renamePastedPrefix():
+    def getShortName(name):
+        if '|' in name:
+            return name.split('|')[-1]
+        else:
+            return name
+        
+    def getEndDigit(name):
+        if 'pasted__' in name:
+            name = name.replace("pasted__", "")
+        digit = ''
+        if name[-1].isdigit():
+            while name[-1].isdigit():
+                digit = digit + name[-1]
+                name = name[:-1]
+            return name,int(digit[::-1])
+        else:
+            return name, 0
+    
+    def renameAddDigit(name):
+        if cmds.objExists(name):
+            base_name = getShortName(name)
+            base_name,digit = getEndDigit(base_name)
+            while cmds.objExists(base_name + str(digit + 1)):
+                digit += 1
+            return base_name + str(digit + 1)
+
+    while cmds.ls("pasted__*"):
+        for i in cmds.ls("pasted__*"):
+            if cmds.objExists(i):
+                cmds.rename(i, renameAddDigit(i))
+                
+                    
