@@ -109,11 +109,15 @@ class oneLinerUI(QWidget):
         if text:
             if text.startswith('f:') or text.startswith('fs:') or text.startswith('fe:'):
                 if text.startswith('f:'):
-                    self.items = cmds.ls(text[2:]+ '*',fl=True)[:19]
-                elif text.startswith('fs:') or text.startswith('fe:'):
+                    self.items = cmds.ls('*'+text[2:]+ '*',fl=True)[:19]
+                elif text.startswith('fs:'):
                     self.items = cmds.ls(text[3:]+ '*',fl=True)[:19]
+                elif text.startswith('fe:'):
+                    self.items = cmds.ls('*'+text[3:],fl=True)[:19]
                 self.listViewItemSet()
                 self.items = []
+            if text.endswith('/h'):
+                pass
             else:
                 if self.items:
                     self.listView.setModel(QStringListModel(oneLiner.newNameView(text)))

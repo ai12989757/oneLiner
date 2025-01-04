@@ -15,6 +15,9 @@
 # - - + don't rename shape name
 # - fix - + can't rename shadingEngine node
 #------------------------------------------
+# 待修复BUF，当选择的物体中有重名的物体时，会出现错误
+# 修复方法：如果有重名的物体，将重名的物体的数字+1，直到没有重名的物体，参考 renamePastedPrefix 函数
+# 把 renamePastedPrefix 里数字加1的部分单独提取出来，作为一个函数，然后在 oneLiner 函数中调用
 
 import maya.cmds as cmds
 
@@ -140,8 +143,8 @@ def newNameView(nName, method='s'):
     changeName = []
     # get selection method
     if nName.find(':') != -1:
-        pass
         #selector(nName)
+        pass
     elif nName.find('/s') != -1:
         method = 's'
         nName = nName.replace('/s', '')
