@@ -342,11 +342,29 @@ class helpUI(QWidget):
             )
         self.containerLayout.addWidget(self.thanks)
 
+        # 加载设置
+        self.load_settings()
+
     def webButton(self,icon, web):
         def clickedFunction():
             QDesktopServices.openUrl(QUrl(web))
         button = gifButton(iconPath=icon, clickedFunction=clickedFunction)
         return button
+
+    def load_settings(self):
+        settings = QSettings()
+        geometry = settings.value("geometry")
+        if geometry:
+            self.restoreGeometry(geometry)
+
+    def save_settings(self):
+        settings = QSettings()
+        settings.setValue("geometry", self.saveGeometry())
+        
+    def closeEvent(self, event):
+        # 保存当前的位置和大小
+        self.save_settings()
+        event.accept()
 
 class gifLabel(QFrame):
     def __init__(self, parent=None, **kwargs):
