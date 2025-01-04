@@ -12,10 +12,14 @@ try:
     from PySide6.QtCore import *
     from PySide6.QtGui import *
     from PySide6.QtWidgets import *
+    from PySide6.QtWebEngineWidgets import QWebEngineView
+    from PySide6.QtWebEngineCore import QWebEngineSettings
 except ImportError:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
+    from PySide2.QtWebEngineWidgets import QWebEngineView
+    from PySide2.QtWebEngineCore import QWebEngineSettings
 
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
@@ -234,6 +238,21 @@ class helpUI(QWidget):
         self.containerLayout.setSpacing(10)
         self.container.setLayout(self.containerLayout)
 
+        # 添加几个按钮，B站 youtube github
+        self.buttonLayout = QHBoxLayout()
+        self.buttonLayout.setAlignment(Qt.AlignLeft)
+        self.buttonLayout.setSpacing(10)
+        self.containerLayout.addLayout(self.buttonLayout)
+        # B站
+        self.bilibiliButton = self.webButton(oneLinerPath + "images/icon/bilibili.png", "https://space.bilibili.com/14857382")
+        self.buttonLayout.addWidget(self.bilibiliButton)
+        # youtube
+        self.youtubeButton = self.webButton(oneLinerPath + "images/icon/youtube.png", "https://www.youtube.com/@yibai_IOO")
+        self.buttonLayout.addWidget(self.youtubeButton)
+        # github
+        self.githubButton = self.webButton(oneLinerPath + "images/icon/github.png", "https://github.com/ai12989757")
+        self.buttonLayout.addWidget(self.githubButton)
+
         # 标题
         self.title = QLabel(u'重命名规则帮助')
         self.title.setFont(QFont("Microsoft YaHei", 20, QFont.Bold))
@@ -309,8 +328,12 @@ class helpUI(QWidget):
                     ]
             )
         self.containerLayout.addWidget(self.thanks)
-            
 
+    def webButton(self,icon, web):
+        def clickedFunction():
+            QDesktopServices.openUrl(QUrl(web))
+        button = gifButton(iconPath=icon, clickedFunction=clickedFunction)
+        return button
 
 class gifLabel(QFrame):
     def __init__(self, parent=None, **kwargs):
@@ -319,6 +342,7 @@ class gifLabel(QFrame):
         self.title1 = kwargs.get('title1', None)
         self.title1 = self.setFontStyle(self.title1, "Chocolate")
         self.title2 = kwargs.get('title2', None)
+        
         # 设置边框
         self.setStyleSheet("border: 0px solid #6a6a6a;")
         self.layout = QVBoxLayout()
@@ -369,6 +393,102 @@ class gifLabel(QFrame):
         font = font.replace("]", "</b>")
         return font
 
+class gifButton(QPushButton):
+    def __init__(self, parent=None, **kwargs):
+        super(gifButton, self).__init__(parent)
+        self.iconPath = kwargs.get('iconPath', None)
+        self.web = kwargs.get('web', None)
+        self.size = kwargs.get('size', 24)
+        self.clickedFunction = kwargs.get('clickedFunction', None)
+        self.setButtonIcon()
+        
+        
+    def setButtonIcon(self):
+        self.clicked.connect(self.clickedFunction)
+        # 设置样式
+        self.setStyleSheet("QPushButton{border: 0px solid rgba(0, 0, 0,0);}")
+        self.pixmap = QPixmap(self.iconPath)
+        self.pixmap = self.pixmap.scaledToHeight(self.size, Qt.SmoothTransformation)
+        self.setIcon(QIcon(self.pixmap))
+        if self.iconPath.endswith('.gif'):
+            self.movie = QMovie(self.iconPath)
+            self.movie.start()
+            self.movie.frameChanged.connect(self.updateIcon)
+        self.setIconSize(QSize(self.size, self.size))
+        self.setFixedSize(self.size, self.size)
+        
+    def updateIcon(self):
+        self.setIcon(QIcon(self.movie.currentPixmap()))
+
+    def enhanceIcon(self,iconPath):
+        if iconPath.endswith('.gif'):
+            pass
+        else:
+            image = QImage(iconPath)
+            image = image.scaled(self.size, self.size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            painter = QPainter(image)
+            painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+
+            # 增加对比度
+            for y in range(image.height()):
+                for x in range(image.width()):
+                    pixel = image.pixel(x, y)
+                    color = QColor(pixel)
+                    if color.red() > 0 or color.green() > 0 or color.blue() > 0:
+                        enhancedColor = QColor(
+                            min(255, int(color.red() + 30)),
+                            min(255, int(color.green() + 30)),
+                            min(255, int(color.blue() + 30)),
+                            color.alpha()  # 保持 alpha 通道不变
+                        )
+                        image.setPixelColor(x, y, enhancedColor)
+            painter.end()
+            return QIcon(QPixmap.fromImage(image))
+
+    def enterEvent(self,event):
+        if not self.iconPath.endswith('.gif'):
+            self.setIcon(QIcon(self.enhanceIcon(self.iconPath)))
+
+        effect = QGraphicsDropShadowEffect(self)
+        effect.setColor(QColor(255, 255, 255))
+        effect.setBlurRadius(3)
+        effect.setOffset(0, 0)
+        self.setGraphicsEffect(effect)
+        self.colorAnimation = QPropertyAnimation(effect, b"color")
+        self.colorAnimation.setStartValue(QColor(127, 179, 213))
+        self.colorAnimation.setKeyValueAt(0.07, QColor(133, 193, 233))
+        self.colorAnimation.setKeyValueAt(0.14, QColor(118, 215, 196))
+        self.colorAnimation.setKeyValueAt(0.21, QColor(115, 198, 182))
+        self.colorAnimation.setKeyValueAt(0.28, QColor(125, 206, 160))
+        self.colorAnimation.setKeyValueAt(0.35, QColor(130, 224, 170))
+        self.colorAnimation.setKeyValueAt(0.42, QColor(247, 220, 111))
+        self.colorAnimation.setKeyValueAt(0.49, QColor(248, 196, 113))
+        self.colorAnimation.setKeyValueAt(0.56, QColor(240, 178, 122))
+        self.colorAnimation.setKeyValueAt(0.63, QColor(229, 152, 102))
+        self.colorAnimation.setKeyValueAt(0.70, QColor(217, 136, 128))
+        self.colorAnimation.setKeyValueAt(0.77, QColor(241, 148, 138))
+        self.colorAnimation.setKeyValueAt(0.84, QColor(195, 155, 211))
+        self.colorAnimation.setKeyValueAt(0.91, QColor(187, 143, 206))
+        self.colorAnimation.setEndValue(QColor(127, 179, 213))
+        self.colorAnimation.setDuration(4000)
+        self.colorAnimation.setLoopCount(-1)
+        self.colorAnimation.start()
+
+    def leaveEvent(self,event):
+        if not self.iconPath.endswith('.gif'):
+            self.setButtonIcon()
+        self.colorAnimation.stop()
+        self.setGraphicsEffect(None)
+
+    def mousePressEvent(self, event):
+        # 缩小图标
+        self.setIconSize(QSize(self.size-4, self.size-4))
+        super().mousePressEvent(event)
+    
+    def mouseReleaseEvent(self, event):
+        # 还原图标
+        self.setIconSize(QSize(self.size, self.size))
+        super().mouseReleaseEvent(event)
 
 if __name__ == "__main__":
     try:
