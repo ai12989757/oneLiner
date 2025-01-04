@@ -35,14 +35,20 @@ class installWindow(QWidget):
         self.setWindowFlags(Qt.Window)
         self.setWindowTitle('设置快捷键')
         self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint | Qt.WindowTitleHint)
-        self.resize(240, 100)
+        self.resize(240, 120)
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
+        # 提示
+        self.label = QLabel('请按下快捷键')
+        self.label.setAlignment(Qt.AlignLeft)
+        self.layout.addWidget(self.label)
+        # 输入框
         self.lineEdit = QLineEdit()
-        self.lineEdit.setFixedHeight(40)
+        self.lineEdit.setFixedHeight(30)
         self.lineEdit.setReadOnly(True)
         self.lineEdit.setFocus()
         self.layout.addWidget(self.lineEdit)
+        # 按钮
         self.buttonLayout = QHBoxLayout()
         self.layout.addLayout(self.buttonLayout)
         self.pushButton_2 = QPushButton('确定')
@@ -52,6 +58,14 @@ class installWindow(QWidget):
         self.pushButton_2.clicked.connect(self.on_click)
         self.pushButton.clicked.connect(self.close)
         self.setFixedSize(self.width(), self.height())
+        # 在光标位置显示窗口
+        cursor = QCursor.pos()
+        self.move(cursor.x() - self.width() / 2, cursor.y() - self.height() / 2)
+
+        # 切换到maya窗口，否则需要先点击一下窗口才能设置快捷键
+        cmds.setFocus('MayaWindow')
+
+
 
         self.kyes = []
         self.HotKeys = ''
