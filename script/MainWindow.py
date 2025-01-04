@@ -192,7 +192,12 @@ class oneLinerUI(QWidget):
 class helpUI(QWidget):
     def __init__(self, parent=maya_main_window()):
         super(helpUI, self).__init__(parent)
+        
+        if cmds.window('helpUI',q=True, ex=True):
+            cmds.deleteUI('helpUI')
+
         self.setWindowTitle('帮助')
+        self.setObjectName('helpUI')
         # 在鼠标位置显示窗口
         #self.setGeometry(QCursor.pos().x(), QCursor.pos().y(), 660, 300)
         # 固定窗口大小不可更改大小
