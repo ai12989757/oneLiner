@@ -12,14 +12,10 @@ try:
     from PySide6.QtCore import *
     from PySide6.QtGui import *
     from PySide6.QtWidgets import *
-    from PySide6.QtWebEngineWidgets import QWebEngineView
-    from PySide6.QtWebEngineCore import QWebEngineSettings
 except ImportError:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-    from PySide2.QtWebEngineWidgets import QWebEngineView
-    from PySide2.QtWebEngineCore import QWebEngineSettings
 
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
@@ -425,7 +421,7 @@ class gifButton(QPushButton):
             pass
         else:
             image = QImage(iconPath)
-            image = image.scaled(self.size, self.size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            #image = image.scaled(self.size, self.size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             painter = QPainter(image)
             painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
 
@@ -451,7 +447,7 @@ class gifButton(QPushButton):
 
         effect = QGraphicsDropShadowEffect(self)
         effect.setColor(QColor(255, 255, 255))
-        effect.setBlurRadius(3)
+        effect.setBlurRadius(10)
         effect.setOffset(0, 0)
         self.setGraphicsEffect(effect)
         self.colorAnimation = QPropertyAnimation(effect, b"color")

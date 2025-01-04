@@ -11,10 +11,7 @@ Simple Renamer Tool for Maya
 ## ENV
 
 - windows
-- python2.x|python3.x
-- PySide2
 - maya2017+
-- pymel
 
 ## To be optimized
 
