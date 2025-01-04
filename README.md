@@ -85,6 +85,8 @@ Simple Renamer Tool for Maya
 
 ##### Right click Show Tips
 
+![08.gif](images/08.png)
+
 ## Thanks
 
 - **Original Author:**
