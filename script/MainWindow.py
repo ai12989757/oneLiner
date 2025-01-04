@@ -43,6 +43,7 @@ class oneLinerUI(QWidget):
         super(oneLinerUI, self).__init__(parent)
 
         # 初始化
+        self.items = cmds.ls(sl=True,fl=True)
         self.height = 24
         self.listViewItemHeight = 20
         self.oldPos = self.pos()
@@ -79,11 +80,12 @@ class oneLinerUI(QWidget):
         self.listViewItemSet()                                                   # 设置列表框的内容
 
     def listViewItemSet(self):
-        self.items = cmds.ls(sl=True,fl=True)
+        
         if len(self.items) == 0:
-            self.height
-            self.listView.setVisible(False) 
+            self.height = 24
             self.lineEdit.setPlaceholderText(u"请选择物体, 或键入f:/fs:/fe: + 字符 以选择相关对象")
+            self.listView.setVisible(False) 
+            self.setGeometry(self.pw , self.ph, 320, self.height) 
         else:
             if len(self.items) >= 20:
                 self.items = self.items[:19]
@@ -106,7 +108,17 @@ class oneLinerUI(QWidget):
         text = self.lineEdit.text()
         if text:
             if text.startswith('f:') or text.startswith('fs:') or text.startswith('fe:'):
-                self.listView.setModel(QStringListModel(oneLiner.newNameView(text)))
+                if text.startswith('f:'):
+                    self.items = cmds.ls(text[2:]+ '*',fl=True)[:19]
+                elif text.startswith('fs:') or text.startswith('fe:'):
+                    self.items = cmds.ls(text[3:]+ '*',fl=True)[:19]
+                self.listViewItemSet()
+                self.items = []
+            else:
+                if self.items:
+                    self.listView.setModel(QStringListModel(oneLiner.newNameView(text)))
+                else:
+                    self.listViewItemSet()
         else:
             self.listView.setModel(QStringListModel(self.items))
 
@@ -115,6 +127,7 @@ class oneLinerUI(QWidget):
         if text:
             self.lineEdit.clear()
             oneLiner.oneLiner(text)
+            self.items = cmds.ls(sl=True,fl=True)
             self.listViewItemSet()
 
     def event(self, eve):

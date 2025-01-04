@@ -161,7 +161,7 @@ def newNameView(nName, method='s'):
         slt = cmds.ls(selection=True)
         for i in slt:
             sltH.append(i)
-            for child in reversed(cmds.listRelatives(i, ad=True, type='transform')):
+            for child in reversed(i.listRelatives(ad=True, type='transform')):
                 sltH.append(child)
         #print(sltH)
         slt = sltH
@@ -193,12 +193,16 @@ def newNameView(nName, method='s'):
     if nName.find(':') == -1:
         for i in slt:  # for every object in selection list
             # check if there is '>' that represents the replacement method
-            curName = cmds.ls(i, long=True)[0].split('|')[-1]
+            if i.find('|') !=-1:
+                curName = i.split('|')[-1]
+            else:
+                curName = i
+                
             if nName.find('>') != -1:
                 wordSplit = nName.split('>')
                 oldWord = wordSplit[0]
-                newWord = numReplace(wordSplit[1], slt.index(i))
-                newName = curName.replace(oldWord, newWord)
+                newWord = numReplace(wordSplit[1],slt.index(i))
+                newName = i.replace(oldWord,newWord)
                 changeName.append(newName)
             # check if the first character is '-' or '+', remove character method
             elif nName[0] == '-':
