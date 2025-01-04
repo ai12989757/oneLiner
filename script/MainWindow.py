@@ -22,11 +22,7 @@ import maya.cmds as cmds
 
 from oneLiner import *
 
-import sys
-sys.path
-for i in sys.path:
-    if 'oneLiner' in i:
-        oneLinerPath = i.replace('script/','')
+oneLinerPath = __file__.replace("\\", "/").replace("script/MainWindow.py", "")
 
 def maya_main_window():
     """

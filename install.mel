@@ -1,11 +1,12 @@
 global string $gShelfTopLevel;
 global string $scriptPATH ;
 
+melOptions -duplicateVariableWarnings off; // 关闭警告
 string $asInstallScriptLocation=`asInstallScriptLocation`;
 if (`gmatch $asInstallScriptLocation "*\*"`)
 	$asInstallScriptLocation=`substituteAllString $asInstallScriptLocation "\\" "/"`;
 string $scriptPATH=$asInstallScriptLocation+"script/";
-
+global string $oneLinerCommand;
 string $oneLinerCommand = "import sys\n"+
 "PATH = '"+ $scriptPATH +"'\n"+
 "if PATH not in sys.path:\n"+
@@ -29,10 +30,6 @@ string $oneLinerCommand = "import sys\n"+
 "    olUI = MainWindow.oneLinerUI()\n"+
 "    olUI.show()\n"
 ;
-
-if(`runTimeCommand -q -ex "oneLiner"`)
-    runTimeCommand -e -delete "oneLiner";
-runTimeCommand -category "Custom Scripts" -commandLanguage "python" -command $oneLinerCommand  "oneLiner";
 
 // 安装界面
 string $command = "import sys\n"
