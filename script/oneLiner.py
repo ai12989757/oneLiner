@@ -15,9 +15,8 @@
 # - - + don't rename shape name
 # - fix - + can't rename shadingEngine node
 #------------------------------------------
-# 待修复BUF，当选择的物体中有重名的物体时，会出现错误
-# 修复方法：如果有重名的物体，将重名的物体的数字+1，直到没有重名的物体，参考 renamePastedPrefix 函数
-# 把 renamePastedPrefix 里数字加1的部分单独提取出来，作为一个函数，然后在 oneLiner 函数中调用
+# 待修复有重名对象时的问题
+# 优化/h模式下的选择，会排除掉 shape 下如果父级在 selection 中的对象
 
 import maya.cmds as cmds
 
@@ -44,115 +43,33 @@ def selector(lookName):
         sel = cmds.ls("*{}".format(nameSel), r=True)
     elif method == 'fs':
         sel = cmds.ls("{}*".format(nameSel), r=True)
+    Temp = []
+    for child in sel:
+        if cmds.nodeType(child) != 'transform' and cmds.nodeType(child) != 'joint':
+            if cmds.listRelatives(child, p=True) != None:
+                for i in cmds.listRelatives(child, p=True):
+                    if i in sel:
+                        Temp.append(child)
+                        continue
+    for i in Temp:
+        sel.remove(i)
     cmds.select(sel, ne=True)
 
-@undoBlock
-def oneLiner(nName, method='s'):
-
-    # get selection method
-    if nName.find(':') != -1:
-        selector(nName)
-    elif nName.find('/s') != -1:
-        method = 's'
-        nName = nName.replace('/s', '')
-    elif nName.find('/h') != -1:
-        method = 'h'
-        nName = nName.replace('/h', '')
-    elif nName.find('/a') != -1:
-        if nName.find('>') != -1:
-            method = 'a'
-            print(method)
-        nName = nName.replace('/a', '')
-
-    if method == 's':
-        slt = cmds.ls(selection=True)
-    elif method == 'h':
-        sltH = []
-        slt = cmds.ls(selection=True)
-        for i in slt:
-            sltH.append(i)
-            for child in reversed(cmds.listRelatives(i, ad=True, type='transform')):
-                sltH.append(child)
-        print(sltH)
-        slt = sltH
-    elif method == 'a':
-        slt = cmds.ls()
-
-    # find numbering replacement
-    def numReplace(numName, idx, start=1):
-        global padding
-        alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        if numName.find('//') != -1:
-            start = int(numName[numName.find('//') + 2:len(numName)])
-            numName = numName.replace(numName[numName.find('//'):len(numName)], '')
-            print(start)
-        number = idx + start
-        if numName.find('#') != -1:
-            padding = numName.count('#')
-            hastag = "{0:#>{1}}".format("#", padding)  # get how many '#' is in the new name
-            num = "{0:0>{1}d}".format(number, padding)  # get number
-            numName = numName.replace(hastag, num)
-        # alphabetical numbering
-        if numName.find('@') != -1:
-            padding = numName.count('@')
-            aSym = "{0:@>{1}}".format("@", padding) # get how many '@' is in the new name
-            alphaNum = "{}".format(alpha[idx])  # get alphabetical number
-            numName = numName.replace(aSym, alphaNum)
-
-        return numName
-    if nName.find(':') == -1:
-        for i in slt:  # for every object in selection list
-            # check if there is '>' that represents the replacement method
-            curName = cmds.ls(i, long=True)[0].split('|')[-1]
-            if nName.find('>') != -1:
-                wordSplit = nName.split('>')
-                oldWord = wordSplit[0]
-                newWord = numReplace(wordSplit[1], slt.index(i))
-                try:
-                    cmds.rename(i, curName.replace(oldWord, newWord))
-                except:
-                    print("{} is not renamed".format(i))
-
-            # check if the first character is '-' or '+', remove character method
-            elif nName[0] == '-':
-                if len(cmds.ls(curName, shapes=True)) == 0:
-                    charToRemove = int(nName[1:len(nName)])
-                    try:
-                        cmds.rename(i, curName[0:-charToRemove])
-                    except:
-                        print("{} is not renamed".format(i))
-
-            elif nName[0] == '+':
-                if len(cmds.ls(curName, shapes=True)) == 0:
-                    charToRemove = int(nName[1:len(nName)])
-                    cmds.rename(i, curName[charToRemove:len(curName)])
-
-            else:
-                newName = numReplace(nName, slt.index(i))
-                # get current Name if '!' mentioned
-                print(i)
-                if newName.find('!') != -1:
-                    newName = newName.replace('!', curName)
-                    print(newName)
-                try:
-                    cmds.rename(i, newName)
-                except:
-                    print("{} is not renamed".format(i))
-
-def newNameView(nName, method='s'):
+def getNweName(nName, method='s'):
     changeName = []
-    # get selection method
-    if nName.find(':') != -1:
-        #selector(nName)
+    if nName == '/':
         pass
-    elif nName.find('/s') != -1:
+    # get selection method
+    if ':' in nName:
+        selector(nName)
+    elif '/s' in nName:
         method = 's'
         nName = nName.replace('/s', '')
-    elif nName.find('/h') != -1:
+    elif '/h' in nName:
         method = 'h'
         nName = nName.replace('/h', '')
-    elif nName.find('/a') != -1:
-        if nName.find('>') != -1:
+    elif '/a' in nName:
+        if '>' in nName:
             method = 'a'
             #print(method)
         nName = nName.replace('/a', '')
@@ -164,9 +81,14 @@ def newNameView(nName, method='s'):
         slt = cmds.ls(selection=True)
         for i in slt:
             sltH.append(i)
-            for child in reversed(i.listRelatives(ad=True, type='transform')):
-                sltH.append(child)
-        #print(sltH)
+            relatives,fullname = cmds.listRelatives(i, ad=True, type='transform'), cmds.listRelatives(i, ad=True, fullPath=True, type='transform')
+            relatives = list(reversed(relatives))
+            fullname = list(reversed(fullname))
+            if relatives:
+                for index, child in enumerate(relatives):
+                    if len(cmds.ls(child)) > 1:
+                        child = fullname[index]
+                    sltH.append(child)
         slt = sltH
     elif method == 'a':
         slt = cmds.ls()
@@ -193,6 +115,9 @@ def newNameView(nName, method='s'):
             numName = numName.replace(aSym, alphaNum)
 
         return numName
+
+    if not nName:
+        return  slt, slt
     if nName.find(':') == -1:
         for i in slt:  # for every object in selection list
             # check if there is '>' that represents the replacement method
@@ -200,63 +125,76 @@ def newNameView(nName, method='s'):
                 curName = i.split('|')[-1]
             else:
                 curName = i
-                
             if nName.find('>') != -1:
                 wordSplit = nName.split('>')
                 oldWord = wordSplit[0]
                 newWord = numReplace(wordSplit[1],slt.index(i))
                 newName = i.replace(oldWord,newWord)
-                changeName.append(newName)
             # check if the first character is '-' or '+', remove character method
             elif nName[0] == '-':
                 charToRemove = int(nName[1:len(nName)])
                 newName = curName[0:-charToRemove]
-                changeName.append(newName)
             elif nName[0] == '+':
                 charToRemove = int(nName[1:len(nName)])
                 newName = curName[charToRemove:len(curName)]
-                changeName.append(newName)
             else:
                 newName = numReplace(nName, slt.index(i))
                 # get current Name if '!' mentioned
                 #print(i)
                 if newName.find('!') != -1:
                     newName = newName.replace('!', curName)
-                changeName.append(newName)
-        
-    return changeName
+            if newName:
+                if newName == '/':
+                    return slt, slt
+                if '|' in newName:
+                    newName = newName.split('|')[-1]
+                if len(cmds.ls(newName)) > 1:
+                    newName = renameAddDigit(newName)
+            changeName.append(newName)
+
+        if any('|' in i for i in slt) or any('|' in i for i in changeName):
+            slt.reverse()
+            changeName.reverse()
+    return slt, changeName
 
 @undoBlock
-def renamePastedPrefix():
-    def getShortName(name):
-        if '|' in name:
-            return name.split('|')[-1]
-        else:
-            return name
+def oneLiner(nName, method='s'):
+    slt, newNameList = getNweName(nName, method)
+    for i, newName in zip(slt, newNameList):
+        try:
+            cmds.rename(i, newName)
+        except:
+            print("{} is not renamed".format(i))
         
-    def getEndDigit(name):
-        if 'pasted__' in name:
-            name = name.replace("pasted__", "")
-        digit = ''
-        if name[-1].isdigit():
-            while name[-1].isdigit():
-                digit = digit + name[-1]
-                name = name[:-1]
-            return name,int(digit[::-1])
-        else:
-            return name, 0
+def newNameView(nName, method='s'):
+    return getNweName(nName, method)[1]
     
-    def renameAddDigit(name):
-        if cmds.objExists(name):
-            base_name = getShortName(name)
-            base_name,digit = getEndDigit(base_name)
-            while cmds.objExists(base_name + str(digit + 1)):
-                digit += 1
-            return base_name + str(digit + 1)
-
+def renameAddDigit(name):
+    if '|' in name:
+        name = name.split('|')[-1]
+    digit = ''
+    if name[-1].isdigit():
+        while name[-1].isdigit():
+            digit = digit + name[-1]
+            name = name[:-1]
+    else:
+        digit = 0
+        
+    if cmds.objExists(name):
+        while cmds.objExists(name + str(digit + 1)):
+            digit += 1
+        return name + str(digit + 1)
+    else:
+        return None
+    
+@undoBlock
+def renamePastedPrefix():
     while cmds.ls("pasted__*"):
         for i in cmds.ls("pasted__*"):
             if cmds.objExists(i):
-                cmds.rename(i, renameAddDigit(i))
+                name = i
+                if 'pasted__' in i:
+                    name = i.replace("pasted__", "")
+                cmds.rename(i, renameAddDigit(name))
                 
                     

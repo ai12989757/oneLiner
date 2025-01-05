@@ -106,25 +106,42 @@ class oneLinerUI(QWidget):
 
     def changeList(self):
         text = self.lineEdit.text()
+        self.items = cmds.ls(sl=True,fl=True)
         if text:
             if text.startswith('f:') or text.startswith('fs:') or text.startswith('fe:'):
                 if text.startswith('f:'):
                     self.items = cmds.ls('*'+text[2:]+ '*',fl=True)[:19]
+
                 elif text.startswith('fs:'):
                     self.items = cmds.ls(text[3:]+ '*',fl=True)[:19]
                 elif text.startswith('fe:'):
                     self.items = cmds.ls('*'+text[3:],fl=True)[:19]
+                Temp = []
+                for child in self.items:
+                    if cmds.nodeType(child) != 'transform' and cmds.nodeType(child) != 'joint':
+                        if cmds.listRelatives(child, p=True) != None:
+                            for i in cmds.listRelatives(child, p=True):
+                                if i in self.items:
+                                    Temp.append(child)
+                                    continue
+                for i in Temp:
+                    self.items.remove(i)
+                                    
                 self.listViewItemSet()
                 self.items = []
-            if text.endswith('/h'):
-                pass
+            elif text.endswith('/h'):
+                self.items = oneLiner.newNameView(text)
+                self.listViewItemSet()
+                #self.listView.setModel(QStringListModel(oneLiner.newNameView(text)))
+                self.items = cmds.ls(sl=True,fl=True)
             else:
                 if self.items:
+                    self.listViewItemSet()
                     self.listView.setModel(QStringListModel(oneLiner.newNameView(text)))
                 else:
                     self.listViewItemSet()
         else:
-            self.listView.setModel(QStringListModel(self.items))
+            self.listViewItemSet()
 
     def runCommand(self):
         text = self.lineEdit.text()
