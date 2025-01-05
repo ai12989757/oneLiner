@@ -79,6 +79,25 @@ def getNweName(nName, method='s'):
     elif method == 'h':
         sltH = []
         slt = cmds.ls(selection=True)
+        # 两两比较 slt，isParent 为 True 则去掉第二个
+        if len(slt) > 1:
+            sel = cmds.ls(selection=True, long=True)
+            to_remove = set()
+            for i in sel:
+                for j in sel:
+                    if i != j and isParent(i, j):
+                        to_remove.add(j)
+
+            # 从 slt 中移除需要删除的元素
+            sel = [item for item in sel if item not in to_remove]
+            slt = []
+            for i in sel:
+                if '|' in i:
+                    if len(cmds.ls(i.split('|')[-1])) == 1:
+                        i = i.split('|')[-1]
+                slt.append(i)
+        print(slt)
+
         for i in slt:
             sltH.append(i)
             relatives,fullname = cmds.listRelatives(i, ad=True, type='transform'), cmds.listRelatives(i, ad=True, fullPath=True, type='transform')
@@ -116,16 +135,16 @@ def getNweName(nName, method='s'):
 
         return numName
 
-    if not nName:
+    if not nName or nName == '/':
         return  slt, slt
-    if nName.find(':') == -1:
+    if ':' not in nName:
         for i in slt:  # for every object in selection list
             # check if there is '>' that represents the replacement method
-            if i.find('|') !=-1:
+            if '|' in i:
                 curName = i.split('|')[-1]
             else:
                 curName = i
-            if nName.find('>') != -1:
+            if '>' in nName:
                 wordSplit = nName.split('>')
                 oldWord = wordSplit[0]
                 newWord = numReplace(wordSplit[1],slt.index(i))
@@ -159,6 +178,11 @@ def getNweName(nName, method='s'):
 
 @undoBlock
 def oneLiner(nName, method='s'):
+    if not nName or nName == '/':
+        return
+    elif nName == '/h':
+        cmds.select(getNweName(nName, method)[0], r=True)
+        return
     slt, newNameList = getNweName(nName, method)
     for i, newName in zip(slt, newNameList):
         try:
@@ -169,6 +193,18 @@ def oneLiner(nName, method='s'):
 def newNameView(nName, method='s'):
     return getNweName(nName, method)[1]
     
+
+# 查询两个对象是否存在层级关系
+def isParent(itemA, itemB):
+    if not itemA or not itemB:
+        return False
+    if itemA == itemB:
+        return True
+    if cmds.listRelatives(itemA, ad=True):
+        if itemB in cmds.listRelatives(itemA, ad=True, fullPath=True):
+            return True
+    return False
+
 def renameAddDigit(name):
     if '|' in name:
         name = name.split('|')[-1]
