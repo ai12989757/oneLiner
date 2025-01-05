@@ -315,7 +315,7 @@ class helpUI(QWidget):
                       oneLinerPath + "images/05.gif"], 
             title1="[/s /h] 应用于选定/层级", 
             title2=["[/s] 模式默认，无需特殊标注",
-                    "[/h] 作用与所选对象及其层级，在末尾键入 [/h] ，[不要既选父对象又选子对象]"]
+                    "[/h] 作用与所选对象及其层级，在末尾键入 [/h]"]
             )
         self.containerLayout.addWidget(self.gifLabel3)
 
