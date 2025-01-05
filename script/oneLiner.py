@@ -15,7 +15,7 @@
 # - - + don't rename shape name
 # - fix - + can't rename shadingEngine node
 #------------------------------------------
-# 待修复有重名对象时的问题
+# 修复有重名对象时的问题
 # 优化/h模式下的选择，会排除掉 shape 下如果父级在 selection 中的对象
 
 import maya.cmds as cmds
