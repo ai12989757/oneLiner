@@ -353,7 +353,7 @@ class helpUI(QWidget):
             title1="鸣谢",
             title2=["[Fauzan Syabana]",
                     "zansyabana@gmail.com",
-                    "重命名功能代码沿用自原作者",
+                    "重命名功能部分代码沿用自原作者",
                     "开源协议: [MIT]"
                     ]
             )
