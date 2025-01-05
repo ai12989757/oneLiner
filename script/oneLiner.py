@@ -172,29 +172,31 @@ def newNameView(nName, method='s'):
 def renameAddDigit(name):
     if '|' in name:
         name = name.split('|')[-1]
-    digit = ''
+    digit = 0
     if name[-1].isdigit():
         while name[-1].isdigit():
-            digit = digit + name[-1]
+            digit = digit + int(name[-1])
             name = name[:-1]
-    else:
-        digit = 0
         
     if cmds.objExists(name):
-        while cmds.objExists(name + str(digit + 1)):
+        while cmds.objExists(name + str(digit)):
             digit += 1
-        return name + str(digit + 1)
+        name = name + str(digit + 1)
     else:
-        return None
+        name = name + str(digit)
+    return name
     
 @undoBlock
 def renamePastedPrefix():
-    while cmds.ls("pasted__*"):
+    index = 0
+    while cmds.ls("pasted__*") != []:
+        index += 1
+        if index > 100:
+            break
         for i in cmds.ls("pasted__*"):
-            if cmds.objExists(i):
-                name = i
-                if 'pasted__' in i:
-                    name = i.replace("pasted__", "")
+            name = i.replace("pasted__", "")
+            try:
                 cmds.rename(i, renameAddDigit(name))
-                
+            except:
+                pass
                     
