@@ -448,11 +448,10 @@ class gifButton(QPushButton):
         self.web = kwargs.get('web', None)
         self.size = kwargs.get('size', 24)
         self.clickedFunction = kwargs.get('clickedFunction', None)
+        self.clicked.connect(self.clickedFunction)
         self.setButtonIcon()
         
-        
     def setButtonIcon(self):
-        self.clicked.connect(self.clickedFunction)
         # 设置样式
         self.setStyleSheet("QPushButton{border: 0px solid rgba(0, 0, 0,0);}")
         self.pixmap = QPixmap(self.iconPath)
