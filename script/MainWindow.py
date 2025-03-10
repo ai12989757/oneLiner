@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 # changelog:
 # 2023-05-04[11:14:00]:rebuild by yibai
@@ -20,12 +19,7 @@ except ImportError:
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
 
-import oneLiner
-try:
-    reload(oneLiner)
-except:
-    from importlib import reload
-    reload(oneLiner)
+import oneLinerCMD as ol
 
 oneLinerPath = __file__.replace("\\", "/").replace("script/MainWindow.py", "")
 
@@ -130,14 +124,14 @@ class oneLinerUI(QWidget):
                 self.listViewItemSet()
                 self.items = []
             elif text.endswith('/h'):
-                self.items = oneLiner.newNameView(text)
+                self.items = ol.newNameView(text)
                 self.listViewItemSet()
-                #self.listView.setModel(QStringListModel(oneLiner.newNameView(text)))
+                #self.listView.setModel(QStringListModel(ol.newNameView(text)))
                 self.items = cmds.ls(sl=True,fl=True)
             else:
                 if self.items:
                     self.listViewItemSet()
-                    self.listView.setModel(QStringListModel(oneLiner.newNameView(text)))
+                    self.listView.setModel(QStringListModel(ol.newNameView(text)))
                 else:
                     self.listViewItemSet()
         else:
@@ -147,7 +141,7 @@ class oneLinerUI(QWidget):
         text = self.lineEdit.text()
         if text:
             self.lineEdit.clear()
-            oneLiner.oneLiner(text)
+            ol.oneLiner(text)
             self.items = cmds.ls(sl=True,fl=True)
             self.listViewItemSet()
 
@@ -199,7 +193,7 @@ class oneLinerUI(QWidget):
 
         removePastedAction = QAction()
         removePastedAction.setText(u'清除 pasted__ 前缀')
-        removePastedAction.triggered.connect(oneLiner.renamePastedPrefix)
+        removePastedAction.triggered.connect(ol.renamePastedPrefix)
         removePastedAction.setIcon(QIcon(oneLinerPath+"images/icon/Recycle.png"))
         menu.addAction(removePastedAction)
 
@@ -227,11 +221,11 @@ class helpUI(QWidget):
     def __init__(self, parent=maya_main_window()):
         super(helpUI, self).__init__(parent)
         
-        if cmds.window('helpUI',q=True, ex=True):
-            cmds.deleteUI('helpUI')
+        if cmds.window(u'helpUI',q=True, ex=True):
+            cmds.deleteUI(u'helpUI')
 
-        self.setWindowTitle('帮助')
-        self.setObjectName('helpUI')
+        self.setWindowTitle(u'帮助')
+        self.setObjectName(u'helpUI')
         # 在鼠标位置显示窗口
         #self.setGeometry(QCursor.pos().x(), QCursor.pos().y(), 660, 300)
         # 固定窗口大小不可更改大小
@@ -292,8 +286,8 @@ class helpUI(QWidget):
         # 基础用法
         self.gifLabel1 = gifLabel(
             iconPath=[oneLinerPath + "images/01.gif"], 
-            title1="[基础用法]", 
-            title2=["选中的对象执行脚本，选中对象的名称会预览在输入框下方，并实时更新"]
+            title1=u"[基础用法]", 
+            title2=[u"选中的对象执行脚本，选中对象的名称会预览在输入框下方，并实时更新"]
             )
         self.containerLayout.addWidget(self.gifLabel1)
 
@@ -302,10 +296,10 @@ class helpUI(QWidget):
             iconPath=[oneLinerPath + "images/02.gif",
                       oneLinerPath + "images/03.gif",
                       oneLinerPath + "images/04.gif"], 
-            title1="[! # @] 符号的使用", 
-            title2=["[!] 表示对象的旧名称，输入时键入 [!] 操作用来代替旧名称",
-                    "[#] 表示数字，根据选择对象的顺序排序",
-                    "[@] 表示字母，根据选择对象的顺序排序"]
+            title1=u"[! # @] 符号的使用", 
+            title2=[u"[!] 表示对象的旧名称，输入时键入 [!] 操作用来代替旧名称",
+                    u"[#] 表示数字，根据选择对象的顺序排序",
+                    u"[@] 表示字母，根据选择对象的顺序排序"]
             )
         self.containerLayout.addWidget(self.gifLabel2)
 
@@ -313,9 +307,9 @@ class helpUI(QWidget):
         self.gifLabel3 = gifLabel(
             iconPath=[None,
                       oneLinerPath + "images/05.gif"], 
-            title1="[/s /h] 应用于选定/层级", 
-            title2=["[/s] 模式默认，无需特殊标注",
-                    "[/h] 作用与所选对象及其层级，在末尾键入 [/h]"]
+            title1=u"[/s /h] 应用于选定/层级", 
+            title2=[u"[/s] 模式默认，无需特殊标注",
+                    u"[/h] 作用与所选对象及其层级，在末尾键入 [/h]"]
             )
         self.containerLayout.addWidget(self.gifLabel3)
 
@@ -324,10 +318,10 @@ class helpUI(QWidget):
             iconPath=[None,
                 None,
                 oneLinerPath + "images/06.gif"], 
-            title1="[+ - --] 删除字符", 
-            title2=["[+数字] 组合使用，从名字开端删除字符，[+] 表示从前往后，数字表示删除几个字符",
-                    "[-数字] 组合使用，从名字结尾删除字符，[-] 表示从后往前，数字表示删除几个字符",
-                    "[--数字] 组合使用，从结尾删除字符，数字表示删到只剩几个字符"]
+            title1=u"[+ - --] 删除字符", 
+            title2=[u"[+数字] 组合使用，从名字开端删除字符，[+] 表示从前往后，数字表示删除几个字符",
+                    u"[-数字] 组合使用，从名字结尾删除字符，[-] 表示从后往前，数字表示删除几个字符",
+                    u"[--数字] 组合使用，从结尾删除字符，数字表示删到只剩几个字符"]
             )
         self.containerLayout.addWidget(self.gifLabel4)
 
@@ -336,10 +330,10 @@ class helpUI(QWidget):
             iconPath=[None,
                       None,
                       oneLinerPath + "images/07.gif"], 
-            title1="[f: fs: fe:] 选择包含字符", 
-            title2=["[f:字符] 选择包含字符的对象",
-                    "[fs:字符] 选择包含字符的对象并在前面加上字符",
-                    "[fe:字符] 选择包含字符的对象并在后面加上字符"]
+            title1=u"[f: fs: fe:] 选择包含字符", 
+            title2=[u"[f:字符] 选择包含字符的对象",
+                    u"[fs:字符] 选择包含字符的对象并在前面加上字符",
+                    u"[fe:字符] 选择包含字符的对象并在后面加上字符"]
             )
         self.containerLayout.addWidget(self.gifLabel5)
 
@@ -350,11 +344,11 @@ class helpUI(QWidget):
                 oneLinerPath + "images/09.png",
                 None,
                 None],
-            title1="鸣谢",
-            title2=["[Fauzan Syabana]",
-                    "zansyabana@gmail.com",
-                    "重命名功能部分代码沿用自原作者",
-                    "开源协议: [MIT]"
+            title1=u"鸣谢",
+            title2=[u"[Fauzan Syabana]",
+                    u"zansyabana@gmail.com",
+                    u"重命名功能部分代码沿用自原作者",
+                    u"开源协议: [MIT]"
                     ]
             )
         self.containerLayout.addWidget(self.thanks)
@@ -437,7 +431,7 @@ class gifLabel(QFrame):
         self.layout.addWidget(frame)
 
     def setFontStyle(self, font, color):
-        font = font.replace("[", f"<b style='color:{color};'>")
+        font = font.replace("[", "<b style='color:{};'>".format(color))
         font = font.replace("]", "</b>")
         return font
 

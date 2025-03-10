@@ -145,7 +145,7 @@ class installWindow(QWidget):
         self.lineEdit.setText("+".join(self.kyes))
     
     def keyReleaseEvent(self, keyevent):
-        self.kyes.clear()
+        self.kyes = []
         self.HotKeys = self.lineEdit.text()
 
 if __name__ == '__main__':
