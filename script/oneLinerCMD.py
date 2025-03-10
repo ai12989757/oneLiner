@@ -151,9 +151,13 @@ def getNweName(nName, method='s'):
                 newName = i.replace(oldWord,newWord)
             # check if the first character is '-' or '+', remove character method
             elif nName[0] == '-':
+                if nName == '-' or nName == '--':
+                    return slt, slt
                 charToRemove = int(nName[1:len(nName)])
                 newName = curName[0:-charToRemove]
             elif nName[0] == '+':
+                if len(nName) == 1:
+                    return slt, slt
                 charToRemove = int(nName[1:len(nName)])
                 newName = curName[charToRemove:len(curName)]
             else:
@@ -167,8 +171,9 @@ def getNweName(nName, method='s'):
                     return slt, slt
                 if '|' in newName:
                     newName = newName.split('|')[-1]
-                if len(cmds.ls(newName)) > 1:
-                    newName = renameAddDigit(newName)
+                if cmds.ls(newName):
+                    if len(cmds.ls(newName)) > 1:
+                        newName = renameAddDigit(newName)
             changeName.append(newName)
 
         if any('|' in i for i in slt) or any('|' in i for i in changeName):
