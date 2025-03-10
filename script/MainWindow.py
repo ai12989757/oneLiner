@@ -18,10 +18,12 @@ except ImportError:
 
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
-
 import oneLinerCMD as ol
+import os
 
-oneLinerPath = __file__.replace("\\", "/").replace("script/MainWindow.py", "")
+oneLinerPath = os.path.dirname(__file__).replace("\\", "/") + "/"
+oneLinerPath = oneLinerPath.replace("script/", "")
+
 
 def maya_main_window():
     """
@@ -174,7 +176,7 @@ class oneLinerUI(QWidget):
         selectPrefixAction = QAction()
         selectPrefixAction.setText(u'前缀为...')
         selectPrefixAction.triggered.connect(lambda: self.lineEdit.setText('fs:'))
-        selectPrefixAction.setIcon(QIcon(oneLinerPath+"images/icon/Prefix.png"))
+        selectPrefixAction.setIcon(QIcon(oneLinerPath + "images/icon/Prefix.png"))
         menu.addAction(selectPrefixAction)
         # 选择后缀 action
         selectSuffixAction = QAction()
@@ -524,12 +526,12 @@ class gifButton(QPushButton):
     def mousePressEvent(self, event):
         # 缩小图标
         self.setIconSize(QSize(self.size-4, self.size-4))
-        super().mousePressEvent(event)
+        super(gifButton, self).mousePressEvent(event)
     
     def mouseReleaseEvent(self, event):
         # 还原图标
         self.setIconSize(QSize(self.size, self.size))
-        super().mouseReleaseEvent(event)
+        super(gifButton, self).mouseReleaseEvent(event)
 
 if __name__ == "__main__":
     try:
