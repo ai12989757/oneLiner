@@ -1,0 +1,8 @@
+# Build outputs
+OneQtC++/
+**/build/
+packages/
+**/packages/
+repo/
+__pycache__/
+**/__pycache__/
