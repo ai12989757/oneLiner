@@ -29,45 +29,61 @@ public:
         bool isDag = false;
     };
 
+    struct RenameOperation {
+        MObject object;
+        QString oldName;
+        QString newName;
+        bool isDag = false;
+    };
+
+    struct ExecutePlan {
+        QVector<RenameTarget> selectionTargets;
+        QVector<RenameOperation> renameOperations;
+        bool selectionOnly = false;
+        bool noop = false;
+    };
+
     static PreviewResult preview(const QString& rule);
     static PreviewResult preview(const QString& rule, ScopeMode forcedMode, bool useForcedMode);
     static bool execute(const QString& rule);
     static bool execute(const QString& rule, ScopeMode forcedMode, bool useForcedMode);
     static bool renamePastedPrefix();
+    static ExecutePlan buildExecutePlan(const QString& rule, ScopeMode forcedMode, bool useForcedMode);
+    static QVector<RenameOperation> buildClearPastedOperations();
+    static bool applyRenameOperations(const QVector<RenameOperation>& operations, bool useNewNames);
+    static bool selectTargets(const QVector<RenameTarget>& targets);
     static bool isTransformLike(const MObject& object);
 
 private:
-    enum class SelectorMode {
-        None,
-        Contains,
-        Prefix,
-        Suffix,
-    };
-
     struct ParsedRule {
+        QString originalRule;
         QString rawRule;
         QString cleanRule;
         ScopeMode scopeMode = ScopeMode::Selected;
-        SelectorMode selectorMode = SelectorMode::None;
-        QString selectorText;
+        QString wildcardPattern;
+        QStringList typeFilters;
+        bool wildcardSelection = false;
+        bool flagsMode = false;
+        bool includeHierarchy = false;
+        bool includeShapes = false;
         bool selectionOnly = false;
     };
 
     static ParsedRule parseRule(const QString& rule, ScopeMode forcedMode, bool useForcedMode);
+    static QVector<RenameTarget> collectTargets(const ParsedRule& parsed);
     static QVector<RenameTarget> collectTargets(ScopeMode mode);
     static QVector<RenameTarget> collectSelectionTargets();
-    static QVector<RenameTarget> collectHierarchyTargets();
+    static QVector<RenameTarget> collectHierarchyTargets(bool includeShapes = false);
     static QVector<RenameTarget> collectAllTargets();
-    static QVector<RenameTarget> collectPatternTargets(SelectorMode mode, const QString& pattern);
+    static QVector<RenameTarget> collectWildcardTargets(const QString& pattern);
+    static QVector<RenameTarget> filterTargetsByType(const QVector<RenameTarget>& targets, const QStringList& typeFilters);
     static QStringList buildPreviewItems(const ParsedRule& parsed, QVector<RenameTarget>* outTargets = nullptr);
     static QStringList buildRenamedItems(const ParsedRule& parsed, QVector<RenameTarget>* outTargets);
-    static QString resolvePattern(SelectorMode mode, const QString& pattern);
     static QString applyNumberPattern(QString text, int index);
     static QString uniqueNameWithDigits(QString name);
     static QString shortName(const QString& name);
     static bool pathIsAncestorOf(const QString& parentPath, const QString& childPath);
     static bool renameObject(const RenameTarget& target, const QString& newName);
-    static bool selectTargets(const QVector<RenameTarget>& targets);
     static int nameMatchCount(const QString& name);
     static bool nameExists(const QString& name);
 };

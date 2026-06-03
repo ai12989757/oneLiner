@@ -11,9 +11,12 @@
 #include <maya/MStatus.h>
 #include <maya/MString.h>
 
+#include <QRegularExpression>
 #include <QSet>
 
 namespace {
+
+constexpr const char* kWildcardIncludeShapesOptionVar = "oneLinerWildcardIncludeShapes";
 
 MString toMString(const QString& value)
 {
@@ -31,6 +34,29 @@ QString quoteMel(const QString& value)
     escaped.replace(QStringLiteral("\\"), QStringLiteral("\\\\"));
     escaped.replace(QStringLiteral("\""), QStringLiteral("\\\""));
     return QStringLiteral("\"") + escaped + QStringLiteral("\"");
+}
+
+bool readBoolOptionVar(const char* optionVarName, bool defaultValue)
+{
+    int exists = 0;
+    if (MGlobal::executeCommand(MString("optionVar -exists \"") + optionVarName + "\"", exists, false, false) != MS::kSuccess || exists == 0) {
+        return defaultValue;
+    }
+
+    int value = defaultValue ? 1 : 0;
+    if (MGlobal::executeCommand(MString("optionVar -q \"") + optionVarName + "\"", value, false, false) != MS::kSuccess) {
+        return defaultValue;
+    }
+
+    return value != 0;
+}
+
+bool wildcardHasSearchText(const QString& pattern)
+{
+    QString candidate = pattern;
+    candidate.remove(QChar(u'*'));
+    candidate.remove(QChar(u'?'));
+    return !candidate.trimmed().isEmpty();
 }
 
 QString indexToLetters(int index)
@@ -56,7 +82,20 @@ bool appendUniqueTarget(QVector<OneLinerEngine::RenameTarget>& targets, const On
     return true;
 }
 
-void appendDescendants(const MDagPath& parentPath, QVector<OneLinerEngine::RenameTarget>& targets)
+bool shouldIncludeDagChild(const MObject& childObject, bool includeShapes)
+{
+    if (childObject.hasFn(MFn::kTransform) || childObject.hasFn(MFn::kJoint)) {
+        return true;
+    }
+
+    if (includeShapes && childObject.hasFn(MFn::kShape)) {
+        return true;
+    }
+
+    return false;
+}
+
+void appendDescendants(const MDagPath& parentPath, QVector<OneLinerEngine::RenameTarget>& targets, bool includeShapes)
 {
     MStatus status;
     MFnDagNode dagNode(parentPath, &status);
@@ -76,7 +115,7 @@ void appendDescendants(const MDagPath& parentPath, QVector<OneLinerEngine::Renam
             continue;
         }
 
-        if (OneLinerEngine::isTransformLike(childObject)) {
+        if (shouldIncludeDagChild(childObject, includeShapes)) {
             OneLinerEngine::RenameTarget target;
             target.object = childObject;
             target.path = toQString(childPath.fullPathName());
@@ -85,7 +124,7 @@ void appendDescendants(const MDagPath& parentPath, QVector<OneLinerEngine::Renam
             appendUniqueTarget(targets, target);
         }
 
-        appendDescendants(childPath, targets);
+        appendDescendants(childPath, targets, includeShapes);
     }
 }
 
@@ -113,90 +152,159 @@ bool OneLinerEngine::execute(const QString& rule)
 
 bool OneLinerEngine::execute(const QString& rule, ScopeMode forcedMode, bool useForcedMode)
 {
-    const ParsedRule parsed = parseRule(rule, forcedMode, useForcedMode);
-    if (parsed.rawRule.isEmpty() || parsed.rawRule == QStringLiteral("/")) {
+    const ExecutePlan plan = buildExecutePlan(rule, forcedMode, useForcedMode);
+    if (plan.noop) {
         return true;
+    }
+
+    if (plan.selectionOnly) {
+        return selectTargets(plan.selectionTargets);
+    }
+
+    return applyRenameOperations(plan.renameOperations, true);
+}
+
+bool OneLinerEngine::renamePastedPrefix()
+{
+    const QVector<RenameOperation> operations = buildClearPastedOperations();
+    if (operations.isEmpty()) {
+        return true;
+    }
+
+    return applyRenameOperations(operations, true);
+}
+
+OneLinerEngine::ExecutePlan OneLinerEngine::buildExecutePlan(const QString& rule, ScopeMode forcedMode, bool useForcedMode)
+{
+    const ParsedRule parsed = parseRule(rule, forcedMode, useForcedMode);
+
+    ExecutePlan plan;
+    if (parsed.rawRule.isEmpty() || parsed.rawRule == QStringLiteral("/")) {
+        plan.noop = true;
+        return plan;
     }
 
     QVector<RenameTarget> targets;
     const QStringList previewItems = buildPreviewItems(parsed, &targets);
     Q_UNUSED(previewItems)
 
-    if (parsed.selectionOnly || parsed.cleanRule.isEmpty()) {
-        return selectTargets(targets);
+    if (parsed.selectionOnly) {
+        plan.selectionOnly = true;
+        plan.selectionTargets = targets;
+        return plan;
+    }
+
+    if (parsed.flagsMode && parsed.cleanRule.isEmpty()) {
+        plan.selectionOnly = true;
+        plan.selectionTargets = targets;
+        return plan;
     }
 
     const QStringList renamedItems = buildRenamedItems(parsed, &targets);
     if (targets.size() != renamedItems.size()) {
-        return false;
+        return plan;
     }
 
-    bool success = true;
-    MGlobal::executeCommand(toMString(QStringLiteral("undoInfo -openChunk \"oneLiner\"")), false, true);
+    plan.renameOperations.reserve(targets.size());
     for (int index = 0; index < targets.size(); ++index) {
-        if (!renameObject(targets[index], renamedItems[index])) {
-            success = false;
+        RenameOperation operation;
+        operation.object = targets[index].object;
+        operation.oldName = shortName(targets[index].currentName);
+        operation.newName = shortName(renamedItems[index]);
+        operation.isDag = targets[index].isDag;
+        if (!operation.newName.isEmpty() && operation.oldName != operation.newName) {
+            plan.renameOperations.push_back(operation);
         }
     }
-    MGlobal::executeCommand(toMString(QStringLiteral("undoInfo -closeChunk")), false, true);
-    return success;
+    return plan;
 }
 
-bool OneLinerEngine::renamePastedPrefix()
+QVector<OneLinerEngine::RenameOperation> OneLinerEngine::buildClearPastedOperations()
 {
-    const QVector<RenameTarget> targets = collectPatternTargets(SelectorMode::Prefix, QStringLiteral("pasted__"));
-    if (targets.isEmpty()) {
-        return true;
-    }
+    const QVector<RenameTarget> targets = collectWildcardTargets(QStringLiteral("pasted__*"));
+    QVector<RenameOperation> operations;
+    operations.reserve(targets.size());
 
-    bool success = true;
-    MGlobal::executeCommand(toMString(QStringLiteral("undoInfo -openChunk \"oneLinerClearPasted\"")), false, true);
     for (const RenameTarget& target : targets) {
-        QString newName = target.currentName;
+        QString newName = shortName(target.currentName);
         newName.replace(QStringLiteral("pasted__"), QString(), Qt::CaseSensitive);
         newName = uniqueNameWithDigits(newName);
-        if (!renameObject(target, newName)) {
+
+        RenameOperation operation;
+        operation.object = target.object;
+        operation.oldName = shortName(target.currentName);
+        operation.newName = shortName(newName);
+        operation.isDag = target.isDag;
+        if (!operation.newName.isEmpty() && operation.oldName != operation.newName) {
+            operations.push_back(operation);
+        }
+    }
+
+    return operations;
+}
+
+bool OneLinerEngine::applyRenameOperations(const QVector<RenameOperation>& operations, bool useNewNames)
+{
+    bool success = true;
+    if (useNewNames) {
+        for (const RenameOperation& operation : operations) {
+            RenameTarget target;
+            target.object = operation.object;
+            target.currentName = operation.oldName;
+            target.isDag = operation.isDag;
+            if (!renameObject(target, operation.newName)) {
+                success = false;
+            }
+        }
+        return success;
+    }
+
+    for (auto iterator = operations.crbegin(); iterator != operations.crend(); ++iterator) {
+        RenameTarget target;
+        target.object = iterator->object;
+        target.currentName = iterator->newName;
+        target.isDag = iterator->isDag;
+        if (!renameObject(target, iterator->oldName)) {
             success = false;
         }
     }
-    MGlobal::executeCommand(toMString(QStringLiteral("undoInfo -closeChunk")), false, true);
     return success;
 }
 
 OneLinerEngine::ParsedRule OneLinerEngine::parseRule(const QString& rule, ScopeMode forcedMode, bool useForcedMode)
 {
     ParsedRule parsed;
+    parsed.originalRule = rule;
     parsed.rawRule = rule.trimmed();
     parsed.cleanRule = parsed.rawRule;
 
-    if (parsed.rawRule.startsWith(QStringLiteral("fs:"))) {
-        parsed.selectorMode = SelectorMode::Prefix;
-        parsed.selectorText = parsed.rawRule.mid(3);
-        parsed.selectionOnly = true;
+    if (!parsed.originalRule.isEmpty() && parsed.originalRule.front().isSpace()) {
+        parsed.flagsMode = true;
         parsed.cleanRule.clear();
-    } else if (parsed.rawRule.startsWith(QStringLiteral("fe:"))) {
-        parsed.selectorMode = SelectorMode::Suffix;
-        parsed.selectorText = parsed.rawRule.mid(3);
+
+        const QStringList tokens = parsed.rawRule.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+        for (int index = 0; index < tokens.size(); ++index) {
+            const QString& token = tokens[index];
+            if (token == QStringLiteral("-h")) {
+                parsed.includeHierarchy = true;
+                continue;
+            }
+            if (token == QStringLiteral("-s")) {
+                parsed.includeShapes = true;
+                continue;
+            }
+            if (token == QStringLiteral("-type")) {
+                while (index + 1 < tokens.size() && !tokens[index + 1].startsWith(QChar(u'-'))) {
+                    parsed.typeFilters.push_back(tokens[++index]);
+                }
+            }
+        }
+    } else if (parsed.rawRule.contains(QChar(u'*')) || parsed.rawRule.contains(QChar(u'?'))) {
+        parsed.wildcardSelection = true;
         parsed.selectionOnly = true;
-        parsed.cleanRule.clear();
-    } else if (parsed.rawRule.startsWith(QStringLiteral("f:"))) {
-        parsed.selectorMode = SelectorMode::Contains;
-        parsed.selectorText = parsed.rawRule.mid(2);
-        parsed.selectionOnly = true;
+        parsed.wildcardPattern = wildcardHasSearchText(parsed.rawRule) ? parsed.rawRule : QString();
         parsed.cleanRule.clear();
     } else {
-        if (parsed.cleanRule.contains(QStringLiteral("/s"))) {
-            parsed.scopeMode = ScopeMode::Selected;
-            parsed.cleanRule.replace(QStringLiteral("/s"), QString());
-        }
-        if (parsed.cleanRule.contains(QStringLiteral("/h"))) {
-            parsed.scopeMode = ScopeMode::Hierarchy;
-            parsed.cleanRule.replace(QStringLiteral("/h"), QString());
-        }
-        if (parsed.cleanRule.contains(QStringLiteral("/a")) && parsed.cleanRule.contains(QChar(u'>'))) {
-            parsed.scopeMode = ScopeMode::All;
-            parsed.cleanRule.replace(QStringLiteral("/a"), QString());
-        }
         parsed.cleanRule = parsed.cleanRule.trimmed();
     }
 
@@ -205,6 +313,18 @@ OneLinerEngine::ParsedRule OneLinerEngine::parseRule(const QString& rule, ScopeM
     }
 
     return parsed;
+}
+
+QVector<OneLinerEngine::RenameTarget> OneLinerEngine::collectTargets(const ParsedRule& parsed)
+{
+    QVector<RenameTarget> targets = parsed.includeHierarchy
+        ? collectHierarchyTargets(parsed.includeShapes)
+        : collectTargets(parsed.scopeMode);
+
+    if (!parsed.typeFilters.isEmpty()) {
+        targets = filterTargetsByType(targets, parsed.typeFilters);
+    }
+    return targets;
 }
 
 QVector<OneLinerEngine::RenameTarget> OneLinerEngine::collectTargets(ScopeMode mode)
@@ -264,7 +384,7 @@ QVector<OneLinerEngine::RenameTarget> OneLinerEngine::collectSelectionTargets()
     return targets;
 }
 
-QVector<OneLinerEngine::RenameTarget> OneLinerEngine::collectHierarchyTargets()
+QVector<OneLinerEngine::RenameTarget> OneLinerEngine::collectHierarchyTargets(bool includeShapes)
 {
     const QVector<RenameTarget> selectionTargets = collectSelectionTargets();
     QVector<RenameTarget> roots;
@@ -298,7 +418,7 @@ QVector<OneLinerEngine::RenameTarget> OneLinerEngine::collectHierarchyTargets()
         if (status != MS::kSuccess) {
             continue;
         }
-        appendDescendants(rootPath, targets);
+        appendDescendants(rootPath, targets, includeShapes);
     }
     return targets;
 }
@@ -344,14 +464,19 @@ QVector<OneLinerEngine::RenameTarget> OneLinerEngine::collectAllTargets()
     return targets;
 }
 
-QVector<OneLinerEngine::RenameTarget> OneLinerEngine::collectPatternTargets(SelectorMode mode, const QString& pattern)
+QVector<OneLinerEngine::RenameTarget> OneLinerEngine::collectWildcardTargets(const QString& pattern)
 {
     QVector<RenameTarget> targets;
-    MSelectionList selection;
-    const QString resolvedPattern = resolvePattern(mode, pattern);
-    if (MGlobal::getSelectionListByName(toMString(resolvedPattern), selection) != MS::kSuccess) {
+    if (pattern.trimmed().isEmpty()) {
         return targets;
     }
+
+    MSelectionList selection;
+    if (MGlobal::getSelectionListByName(toMString(pattern), selection) != MS::kSuccess) {
+        return targets;
+    }
+
+    const bool includeShapes = readBoolOptionVar(kWildcardIncludeShapesOptionVar, false);
 
     MItSelectionList iterator(selection);
     for (; !iterator.isDone(); iterator.next()) {
@@ -399,6 +524,11 @@ QVector<OneLinerEngine::RenameTarget> OneLinerEngine::collectPatternTargets(Sele
             continue;
         }
 
+        if (includeShapes && target.object.hasFn(MFn::kShape)) {
+            filtered.push_back(target);
+            continue;
+        }
+
         if (target.isDag) {
             const int splitIndex = target.path.lastIndexOf(QChar(u'|'));
             if (splitIndex > 0) {
@@ -413,11 +543,37 @@ QVector<OneLinerEngine::RenameTarget> OneLinerEngine::collectPatternTargets(Sele
     return filtered;
 }
 
+QVector<OneLinerEngine::RenameTarget> OneLinerEngine::filterTargetsByType(const QVector<RenameTarget>& targets, const QStringList& typeFilters)
+{
+    if (typeFilters.isEmpty()) {
+        return targets;
+    }
+
+    QSet<QString> allowedTypes;
+    for (const QString& typeName : typeFilters) {
+        allowedTypes.insert(typeName);
+    }
+
+    QVector<RenameTarget> filtered;
+    filtered.reserve(targets.size());
+    for (const RenameTarget& target : targets) {
+        MStatus status;
+        MFnDependencyNode dependencyNode(target.object, &status);
+        if (status != MS::kSuccess) {
+            continue;
+        }
+        if (allowedTypes.contains(toQString(dependencyNode.typeName()))) {
+            filtered.push_back(target);
+        }
+    }
+    return filtered;
+}
+
 QStringList OneLinerEngine::buildPreviewItems(const ParsedRule& parsed, QVector<RenameTarget>* outTargets)
 {
     QVector<RenameTarget> targets;
     if (parsed.selectionOnly) {
-        targets = collectPatternTargets(parsed.selectorMode, parsed.selectorText);
+        targets = collectWildcardTargets(parsed.wildcardPattern);
         if (outTargets != nullptr) {
             *outTargets = targets;
         }
@@ -434,7 +590,7 @@ QStringList OneLinerEngine::buildPreviewItems(const ParsedRule& parsed, QVector<
 
 QStringList OneLinerEngine::buildRenamedItems(const ParsedRule& parsed, QVector<RenameTarget>* outTargets)
 {
-    QVector<RenameTarget> targets = collectTargets(parsed.scopeMode);
+    QVector<RenameTarget> targets = collectTargets(parsed);
     if (outTargets != nullptr) {
         *outTargets = targets;
     }
@@ -523,21 +679,6 @@ QStringList OneLinerEngine::buildRenamedItems(const ParsedRule& parsed, QVector<
     return renamedItems;
 }
 
-QString OneLinerEngine::resolvePattern(SelectorMode mode, const QString& pattern)
-{
-    switch (mode) {
-    case SelectorMode::Prefix:
-        return pattern + QStringLiteral("*");
-    case SelectorMode::Suffix:
-        return QStringLiteral("*") + pattern;
-    case SelectorMode::Contains:
-        return QStringLiteral("*") + pattern + QStringLiteral("*");
-    case SelectorMode::None:
-    default:
-        return pattern;
-    }
-}
-
 QString OneLinerEngine::applyNumberPattern(QString text, int index)
 {
     int start = 1;
@@ -615,9 +756,14 @@ bool OneLinerEngine::renameObject(const RenameTarget& target, const QString& new
         return false;
     }
 
-    const QString command = QStringLiteral("rename %1 %2")
-        .arg(quoteMel(target.path), quoteMel(shortName(newName)));
-    return MGlobal::executeCommand(toMString(command), false, true) == MS::kSuccess;
+    MStatus status;
+    MFnDependencyNode dependencyNode(target.object, &status);
+    if (status != MS::kSuccess) {
+        return false;
+    }
+
+    dependencyNode.setName(toMString(shortName(newName)), false, &status);
+    return status == MS::kSuccess;
 }
 
 bool OneLinerEngine::selectTargets(const QVector<RenameTarget>& targets)

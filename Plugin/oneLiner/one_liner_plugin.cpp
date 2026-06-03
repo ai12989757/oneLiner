@@ -8,6 +8,10 @@
 #include <maya/MPxCommand.h>
 #include <maya/MSyntax.h>
 
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
+
 #ifdef _WIN32
 #define MAYA_PLUGIN_EXPORT __declspec(dllexport)
 #else
@@ -45,6 +49,18 @@ QString commandHelp()
         "  -help / -hp                   输出帮助文本");
 }
 
+void registerMediaSearchPaths(const MFnPlugin& plugin)
+{
+    const QFileInfo pluginFile(QString::fromUtf8(plugin.loadPath().asChar()));
+    const QDir pluginBinDir = pluginFile.absoluteDir();
+    const QString projectRoot = pluginBinDir.absoluteFilePath(QStringLiteral("../.."));
+    const QString imagesRoot = QDir(projectRoot).absoluteFilePath(QStringLiteral("images"));
+    const QString iconsRoot = QDir(imagesRoot).absoluteFilePath(QStringLiteral("icon"));
+
+    QDir::addSearchPath(QStringLiteral("oneLinerImages"), imagesRoot);
+    QDir::addSearchPath(QStringLiteral("oneLinerIcons"), iconsRoot);
+}
+
 OneLinerEngine::ScopeMode parseMode(const QString& modeText)
 {
     if (modeText.compare(QStringLiteral("h"), Qt::CaseInsensitive) == 0) {
@@ -79,6 +95,9 @@ public:
 
     MStatus doIt(const MArgList& args) override
     {
+        _renameOperations.clear();
+        _canUndo = false;
+
         MStatus status;
         MArgDatabase database(OneLinerCommand::newSyntax(), args, &status);
         if (status != MS::kSuccess) {
@@ -91,7 +110,9 @@ public:
         }
 
         if (database.isFlagSet(kClearPastedFlag)) {
-            return OneLinerEngine::renamePastedPrefix() ? MS::kSuccess : MS::kFailure;
+            _renameOperations = OneLinerEngine::buildClearPastedOperations();
+            _canUndo = !_renameOperations.isEmpty();
+            return _canUndo ? redoIt() : MS::kSuccess;
         }
 
         const bool hasRule = database.isFlagSet(kRuleFlag);
@@ -122,7 +143,17 @@ public:
         }
 
         if (database.isFlagSet(kExecuteFlag)) {
-            return OneLinerEngine::execute(rule, forcedMode, useForcedMode) ? MS::kSuccess : MS::kFailure;
+            const OneLinerEngine::ExecutePlan plan = OneLinerEngine::buildExecutePlan(rule, forcedMode, useForcedMode);
+            if (plan.noop) {
+                return MS::kSuccess;
+            }
+            if (plan.selectionOnly) {
+                return OneLinerEngine::selectTargets(plan.selectionTargets) ? MS::kSuccess : MS::kFailure;
+            }
+
+            _renameOperations = plan.renameOperations;
+            _canUndo = !_renameOperations.isEmpty();
+            return _canUndo ? redoIt() : MS::kSuccess;
         }
 
         if (!hasRule || database.isFlagSet(kShowWindowFlag) || args.length() == 0) {
@@ -130,13 +161,37 @@ public:
             return MS::kSuccess;
         }
 
-        return OneLinerEngine::execute(rule, forcedMode, useForcedMode) ? MS::kSuccess : MS::kFailure;
+        const OneLinerEngine::ExecutePlan plan = OneLinerEngine::buildExecutePlan(rule, forcedMode, useForcedMode);
+        if (plan.noop) {
+            return MS::kSuccess;
+        }
+        if (plan.selectionOnly) {
+            return OneLinerEngine::selectTargets(plan.selectionTargets) ? MS::kSuccess : MS::kFailure;
+        }
+
+        _renameOperations = plan.renameOperations;
+        _canUndo = !_renameOperations.isEmpty();
+        return _canUndo ? redoIt() : MS::kSuccess;
+    }
+
+    MStatus redoIt() override
+    {
+        return OneLinerEngine::applyRenameOperations(_renameOperations, true) ? MS::kSuccess : MS::kFailure;
+    }
+
+    MStatus undoIt() override
+    {
+        return OneLinerEngine::applyRenameOperations(_renameOperations, false) ? MS::kSuccess : MS::kFailure;
     }
 
     bool isUndoable() const override
     {
-        return false;
+        return _canUndo;
     }
+
+private:
+    QVector<OneLinerEngine::RenameOperation> _renameOperations;
+    bool _canUndo = false;
 };
 
 } // namespace
@@ -144,6 +199,7 @@ public:
 MAYA_PLUGIN_EXPORT MStatus initializePlugin(MObject object)
 {
     MFnPlugin plugin(object, "yibai", "1.0.0", "Any");
+    registerMediaSearchPaths(plugin);
     const MStatus status = plugin.registerCommand(kCommandName, OneLinerCommand::creator, OneLinerCommand::newSyntax);
     if (status != MS::kSuccess) {
         MGlobal::displayError(QStringLiteral("Failed to register Maya command: %1").arg(QString::fromUtf8(kCommandName)).toUtf8().constData());
@@ -153,7 +209,7 @@ MAYA_PLUGIN_EXPORT MStatus initializePlugin(MObject object)
 
 MAYA_PLUGIN_EXPORT MStatus uninitializePlugin(MObject object)
 {
-    OneLinerWindow::closeWindow();
+    OneLinerWindow::closeWindow(true);
     MFnPlugin plugin(object);
     return plugin.deregisterCommand(kCommandName);
 }

@@ -2,6 +2,7 @@
 
 #include "one_list.h"
 #include "one_menu.h"
+#include "one_menu_action.h"
 #include "oneqt_brush.h"
 #include "oneqt_system.h"
 
@@ -10,6 +11,7 @@
 
 #include <QApplication>
 #include <QCursor>
+#include <QCloseEvent>
 #include <QDialog>
 #include <QEvent>
 #include <QGuiApplication>
@@ -24,6 +26,7 @@
 #include <QPointer>
 #include <QScreen>
 #include <QScrollBar>
+#include <QSizePolicy>
 #include <QTextBrowser>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -31,6 +34,10 @@
 #include <QWheelEvent>
 
 namespace {
+
+constexpr const char* kPreviewEnabledOptionVar = "oneLinerPreviewEnabled";
+constexpr const char* kAutoCloseEnabledOptionVar = "oneLinerAutoCloseEnabled";
+constexpr const char* kWildcardIncludeShapesOptionVar = "oneLinerWildcardIncludeShapes";
 
 constexpr int kInputWidth = 320;
 constexpr int kInputHeight = 26;
@@ -44,16 +51,21 @@ constexpr int kPreviewMaxVisibleItems = 10;
 constexpr qreal kPanelCornerRadius = 6.0;
 constexpr qreal kItemCornerRadius = 4.0;
 constexpr int kMenuItemHeight = 28;
-constexpr int kMenuHorizontalPadding = 10;
-constexpr int kMenuVerticalPadding = 6;
+constexpr int kMenuHorizontalPadding = 0;
+constexpr int kMenuVerticalPadding = 5;
 constexpr int kMenuSpacing = 1;
-constexpr int kMenuTextSpacing = 8;
+constexpr int kMenuTextSpacing = 10;
 
 QPointer<OneLinerWindow> g_window;
 
 QWidget* mayaMainWindow()
 {
     return reinterpret_cast<QWidget*>(MQtUtil::mainWindow());
+}
+
+MString toMString(const QString& value)
+{
+    return MString(value.toUtf8().constData());
 }
 
 qreal mayaDpiScale(QWidget* widget)
@@ -88,12 +100,19 @@ QString helpText()
         "<li><b>+3</b> 从前往后删 3 个字符</li>"
         "<li><b>-3</b> 从后往前删 3 个字符</li>"
         "<li><b>--3</b> 保留前 3 个字符</li>"
-        "<li><b>/h</b> 作用到选中层级</li>"
-        "<li><b>/a</b> 在替换模式下作用到全场景</li>"
-        "<li><b>f:</b> 选择包含字符的对象</li>"
-        "<li><b>fs:</b> 选择前缀匹配的对象</li>"
-        "<li><b>fe:</b> 选择后缀匹配的对象</li>"
+        "<li><b>* ?</b> 使用 Maya 通配符选择对象，回车直接选中</li>"
+        "<li><b> -h</b> 将当前选中子级加入待重命名列表</li>"
+        "<li><b> -h -s</b> 将当前选中子级和 shape 加入待重命名列表</li>"
+        "<li><b> -type joint blendShape</b> 按类型过滤待重命名列表</li>"
         "</ul>");
+}
+
+QString quoteMelString(const QString& value)
+{
+    QString escaped = value;
+    escaped.replace(QStringLiteral("\\"), QStringLiteral("\\\\"));
+    escaped.replace(QStringLiteral("\""), QStringLiteral("\\\""));
+    return QStringLiteral("\"") + escaped + QStringLiteral("\"");
 }
 
 QFont baseUiFont()
@@ -104,7 +123,47 @@ QFont baseUiFont()
     return font;
 }
 
-void syncMenuActionFont(OneQtAction* action, const QFont& font)
+QString menuIconPath(const QString& kind)
+{
+    if (kind == QStringLiteral("prefix")) {
+        return QStringLiteral("oneLinerIcons:Prefix.png");
+    }
+    if (kind == QStringLiteral("suffix")) {
+        return QStringLiteral("oneLinerIcons:Suffix.png");
+    }
+    if (kind == QStringLiteral("contains")) {
+        return QStringLiteral("oneLinerIcons:Contain.png");
+    }
+    if (kind == QStringLiteral("clearPasted")) {
+        return QStringLiteral("oneLinerIcons:Recycle.png");
+    }
+    return QStringLiteral("oneLinerIcons:help.png");
+}
+
+bool readBoolOptionVar(const char* optionVarName, bool defaultValue)
+{
+    int exists = 0;
+    if (MGlobal::executeCommand(MString("optionVar -exists \"") + optionVarName + "\"", exists, false, false) != MS::kSuccess || exists == 0) {
+        return defaultValue;
+    }
+
+    int value = defaultValue ? 1 : 0;
+    if (MGlobal::executeCommand(MString("optionVar -q \"") + optionVarName + "\"", value, false, false) != MS::kSuccess) {
+        return defaultValue;
+    }
+
+    return value != 0;
+}
+
+void writeBoolOptionVar(const char* optionVarName, bool value)
+{
+    const QString command = QStringLiteral("optionVar -iv \"%1\" %2")
+        .arg(QString::fromUtf8(optionVarName))
+        .arg(value ? 1 : 0);
+    MGlobal::executeCommand(toMString(command), false, false);
+}
+
+void syncMenuActionStyle(OneQtAction* action, const QFont& font, const QVariant& iconSource = QVariant())
 {
     if (action == nullptr) {
         return;
@@ -123,10 +182,18 @@ void syncMenuActionFont(OneQtAction* action, const QFont& font)
     for (OneQtAction::StateName state : states) {
         OneQtActionStyle style = action->style(state);
         style.font = font;
-        style.padding = QMargins(kMenuHorizontalPadding, kMenuVerticalPadding, kMenuHorizontalPadding, kMenuVerticalPadding);
+        style.padding = QMargins(0, kMenuVerticalPadding, 0, kMenuVerticalPadding);
         style.spacing = kMenuTextSpacing;
+        style.iconBrush = OneQtBrush();
         style.cornerRadii = {kItemCornerRadius, kItemCornerRadius, kItemCornerRadius, kItemCornerRadius};
         action->setStyle(state, style);
+    }
+
+    if (OneQtMenuAction* menuAction = dynamic_cast<OneQtMenuAction*>(action)) {
+        menuAction->setIconSource(iconSource);
+        menuAction->setIconCanvasSize(QSize(18, 18));
+        menuAction->setIconSize(QSize(18, 18));
+        menuAction->syncMenuVisuals();
     }
 }
 
@@ -136,8 +203,16 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     : QWidget(parent, Qt::FramelessWindowHint | Qt::Tool)
     , _scale(1.0)
     , _maxPreviewCount(19)
+    , _previewEnabled(readBoolOptionVar(kPreviewEnabledOptionVar, true))
+    , _autoCloseEnabled(readBoolOptionVar(kAutoCloseEnabledOptionVar, true))
+    , _wildcardIncludeShapes(readBoolOptionVar(kWildcardIncludeShapesOptionVar, false))
     , _previewScrollEnabled(false)
+    , _closeAfterMenuAction(false)
+    , _restoreFocusAfterMenu(false)
+    , _isClosing(false)
+    , _previewTopInset(0)
     , _dragging(false)
+    , _rootLayout(new QVBoxLayout(this))
     , _lineEdit(new QLineEdit(this))
     , _previewList(new OneQtList(this, false))
 {
@@ -166,6 +241,14 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
         " selection-background-color: #5285a6;"
         " selection-color: #ffffff;"
         "}"));
+    _lineEdit->setToolTip(QStringLiteral("输入重命名规则；支持 Maya 通配符 * ?，前导空格 flags 支持 -h、-h -s、-type。"));
+    _lineEdit->setStatusTip(QStringLiteral("输入规则后实时预览，回车执行；通配符规则回车将直接选中匹配对象。"));
+
+    _rootLayout->setContentsMargins(0, 0, 0, 0);
+    _rootLayout->setSpacing(0);
+
+    _lineEdit->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    _previewList->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     _previewList->setFocusPolicy(Qt::NoFocus);
     _previewList->setSelectionMode(QAbstractItemView::NoSelection);
@@ -187,11 +270,23 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     _previewList->setSelectedTextBrush(OneQtBrush::fromColor(QColor(QStringLiteral("#f4f6f8"))));
     _previewList->setWheelScrollMode(OneQtList::WheelScrollByItemCount);
     _previewList->setWheelItemsPerStep(3);
+    _previewList->setToolTip(QStringLiteral("预览列表。双击任意项可将其文本写回输入框。"));
+    _previewList->setStatusTip(QStringLiteral("双击预览项可快速把该文本填入输入框。"));
 
     _lineEdit->installEventFilter(this);
     _previewList->installEventFilter(this);
     if (QListView* previewView = _previewList->findChild<QListView*>()) {
+        previewView->setVerticalScrollMode(QAbstractItemView::ScrollPerItem);
         previewView->installEventFilter(this);
+        connect(previewView, &QListView::doubleClicked, this, [this](const QModelIndex& index) {
+            if (!index.isValid()) {
+                return;
+            }
+
+            _lineEdit->setText(_previewList->itemText(index.row()));
+            _lineEdit->setFocus();
+            _lineEdit->selectAll();
+        });
     }
 
     connect(_lineEdit, &QLineEdit::textChanged, this, [this]() { refreshPreview(); });
@@ -234,20 +329,59 @@ void OneLinerWindow::showWindow(QWidget* mayaParent)
     });
 }
 
-void OneLinerWindow::closeWindow()
+void OneLinerWindow::closeWindow(bool immediate)
 {
     if (g_window != nullptr) {
-        g_window->close();
-        g_window->deleteLater();
+        OneLinerWindow* window = g_window;
         g_window = nullptr;
+        window->_isClosing = true;
+        if (window->_toolsMenu != nullptr) {
+            window->_toolsMenu->close();
+            window->_toolsMenu = nullptr;
+        }
+        window->close();
+        if (immediate) {
+            delete window;
+        } else {
+            window->deleteLater();
+        }
     }
+}
+
+void OneLinerWindow::closeEvent(QCloseEvent* event)
+{
+    _isClosing = true;
+    if (_toolsMenu != nullptr) {
+        _toolsMenu->close();
+        _toolsMenu = nullptr;
+    }
+    QWidget::closeEvent(event);
 }
 
 bool OneLinerWindow::event(QEvent* event)
 {
     if (event->type() == QEvent::WindowDeactivate) {
+        if (_toolsMenu != nullptr && _toolsMenu->isVisible()) {
+            return QWidget::event(event);
+        }
+        if (!_autoCloseEnabled) {
+            _previewList->hide();
+            _previewScrollEnabled = false;
+            applyWindowLayout(0);
+            return QWidget::event(event);
+        }
         close();
         return true;
+    }
+    if (event->type() == QEvent::WindowActivate) {
+        if (!_autoCloseEnabled && _previewEnabled && _toolsMenu == nullptr) {
+            QPointer<OneLinerWindow> window = this;
+            QTimer::singleShot(0, [window]() {
+                if (window != nullptr && window->isVisible()) {
+                    window->refreshPreview();
+                }
+            });
+        }
     }
     return QWidget::event(event);
 }
@@ -302,30 +436,43 @@ void OneLinerWindow::paintEvent(QPaintEvent* event)
 void OneLinerWindow::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
+    const int previewHeight = _previewList->isVisible() ? _previewList->height() : 0;
+    applyWindowLayout(previewHeight);
     update();
 }
 
 void OneLinerWindow::refreshPreview()
 {
-    const QString text = _lineEdit->text().trimmed();
+    if (!_previewEnabled) {
+        rebuildPreviewList(QStringList(), false);
+        return;
+    }
+
+    const QString text = _lineEdit->text();
     const OneLinerEngine::PreviewResult result = OneLinerEngine::preview(text);
     rebuildPreviewList(result.items, result.selectionOnly);
 }
 
 void OneLinerWindow::executeRule()
 {
-    const QString text = _lineEdit->text().trimmed();
-    if (text.isEmpty()) {
+    const QString text = _lineEdit->text();
+    if (text.trimmed().isEmpty()) {
         return;
     }
 
-    OneLinerEngine::execute(text);
+    const QString command = QStringLiteral("oneLiner -execute -rule %1").arg(quoteMelString(text));
+    MGlobal::executeCommand(toMString(command), false, true);
     _lineEdit->clear();
     refreshPreview();
 }
 
 void OneLinerWindow::showToolsMenu()
 {
+    if (_toolsMenu != nullptr) {
+        _toolsMenu->close();
+        _toolsMenu = nullptr;
+    }
+
     OneQtMenu* menu = new OneQtMenu(this);
     menu->setAttribute(Qt::WA_DeleteOnClose, true);
     menu->setScale(_scale);
@@ -335,33 +482,125 @@ void OneLinerWindow::showToolsMenu()
     menu->setSpacing(qRound(kMenuSpacing * _scale));
     menu->setItemHeight(kMenuItemHeight);
     menu->setBackground(_inputBackground);
+    _toolsMenu = menu;
+    _closeAfterMenuAction = false;
+    _restoreFocusAfterMenu = false;
+
+    connect(menu, &QObject::destroyed, this, [this]() {
+        _toolsMenu = nullptr;
+        if (_isClosing) {
+            _closeAfterMenuAction = false;
+            _restoreFocusAfterMenu = false;
+            return;
+        }
+        if (_closeAfterMenuAction) {
+            _closeAfterMenuAction = false;
+            close();
+            return;
+        }
+
+        if (_restoreFocusAfterMenu) {
+            _restoreFocusAfterMenu = false;
+            if (isVisible()) {
+                raise();
+                activateWindow();
+                _lineEdit->setFocus();
+            }
+            return;
+        }
+
+        if (_autoCloseEnabled && !isActiveWindow()) {
+            close();
+            return;
+        }
+
+        if (isVisible()) {
+            raise();
+            activateWindow();
+            _lineEdit->setFocus();
+        }
+    });
 
     const QFont menuFont = baseUiFont();
 
-    if (OneQtAction* action = menu->addAction(QStringLiteral("前缀为..."))) {
-        syncMenuActionFont(action, menuFont);
-        action->setClickedHandler([this]() { _lineEdit->setText(QStringLiteral("fs:")); });
+    if (OneQtMenuAction* action = menu->addAction(QStringLiteral("启用预览"), QVariant(), true, false)) {
+        syncMenuActionStyle(action, menuFont);
+        action->setChecked(_previewEnabled);
+        action->setToolTip(QStringLiteral("开启后显示预览列表，关闭后隐藏预览列表。"));
+        action->setStatusTip(QStringLiteral("切换是否显示预览列表。"));
+        action->setToggledHandler([this](bool checked) {
+            _closeAfterMenuAction = false;
+            _restoreFocusAfterMenu = true;
+            _previewEnabled = checked;
+            writeBoolOptionVar(kPreviewEnabledOptionVar, _previewEnabled);
+            refreshPreview();
+            QPointer<OneQtMenu> menuRef = _toolsMenu;
+            QTimer::singleShot(0, [menuRef]() {
+                if (menuRef != nullptr) {
+                    menuRef->close();
+                }
+            });
+        });
     }
-    if (OneQtAction* action = menu->addAction(QStringLiteral("后缀为..."))) {
-        syncMenuActionFont(action, menuFont);
-        action->setClickedHandler([this]() { _lineEdit->setText(QStringLiteral("fe:")); });
+    if (OneQtMenuAction* action = menu->addAction(QStringLiteral("自动关闭"), QVariant(), true, false)) {
+        syncMenuActionStyle(action, menuFont);
+        action->setChecked(_autoCloseEnabled);
+        action->setToolTip(QStringLiteral("开启后窗口失去焦点将自动关闭；关闭后仅隐藏预览列表。"));
+        action->setStatusTip(QStringLiteral("切换窗口失去焦点时是否自动关闭。"));
+        action->setToggledHandler([this](bool checked) {
+            _closeAfterMenuAction = false;
+            _restoreFocusAfterMenu = true;
+            _autoCloseEnabled = checked;
+            writeBoolOptionVar(kAutoCloseEnabledOptionVar, _autoCloseEnabled);
+            QPointer<OneQtMenu> menuRef = _toolsMenu;
+            QTimer::singleShot(0, [menuRef]() {
+                if (menuRef != nullptr) {
+                    menuRef->close();
+                }
+            });
+        });
     }
-    if (OneQtAction* action = menu->addAction(QStringLiteral("中间包含..."))) {
-        syncMenuActionFont(action, menuFont);
-        action->setClickedHandler([this]() { _lineEdit->setText(QStringLiteral("f:")); });
+    if (OneQtMenuAction* action = menu->addAction(QStringLiteral("检索Shape对象"), QVariant(), true, false)) {
+        syncMenuActionStyle(action, menuFont);
+        action->setChecked(_wildcardIncludeShapes);
+        action->setToolTip(QStringLiteral("开启后，通配符检索会包含 shape 对象；关闭时仅检索 transform/joint 等对象。"));
+        action->setStatusTip(QStringLiteral("切换通配符检索时是否包含 shape 对象。"));
+        action->setToggledHandler([this](bool checked) {
+            _closeAfterMenuAction = false;
+            _restoreFocusAfterMenu = true;
+            _wildcardIncludeShapes = checked;
+            writeBoolOptionVar(kWildcardIncludeShapesOptionVar, _wildcardIncludeShapes);
+            refreshPreview();
+            QPointer<OneQtMenu> menuRef = _toolsMenu;
+            QTimer::singleShot(0, [menuRef]() {
+                if (menuRef != nullptr) {
+                    menuRef->close();
+                }
+            });
+        });
     }
     menu->addSeparator();
     if (OneQtAction* action = menu->addAction(QStringLiteral("清除 pasted__ 前缀"))) {
-        syncMenuActionFont(action, menuFont);
+        syncMenuActionStyle(action, menuFont, menuIconPath(QStringLiteral("clearPasted")));
+        action->setToolTip(QStringLiteral("移除所有匹配对象名称中的 pasted__ 前缀。"));
+        action->setStatusTip(QStringLiteral("执行 pasted__ 前缀清理。"));
         action->setClickedHandler([this]() {
-            OneLinerEngine::renamePastedPrefix();
+            _closeAfterMenuAction = true;
+            _restoreFocusAfterMenu = false;
+            MGlobal::executeCommand(toMString(QStringLiteral("oneLiner -clearPasted")), false, true);
             refreshPreview();
         });
     }
     menu->addSeparator();
     if (OneQtAction* action = menu->addAction(QStringLiteral("帮助"))) {
-        syncMenuActionFont(action, menuFont);
-        action->setClickedHandler([this]() { showHelpDialog(); });
+        syncMenuActionStyle(action, menuFont, menuIconPath(QStringLiteral("help")));
+        action->setToolTip(QStringLiteral("打开 oneLiner 规则帮助。"));
+        action->setStatusTip(QStringLiteral("查看 oneLiner 的规则和 flags 说明。"));
+        action->setClickedHandler([this]() {
+            _closeAfterMenuAction = true;
+            _restoreFocusAfterMenu = false;
+            showHelpDialog();
+        });
     }
 
     menu->popup(_lineEdit->mapToGlobal(QPoint(0, _lineEdit->height() + qRound(kPreviewGap * _scale))));
@@ -415,26 +654,56 @@ void OneLinerWindow::updateLayoutMetrics()
     QFont editFont = baseUiFont();
     editFont.setPixelSize(fontSize);
     _lineEdit->setFont(editFont);
-    _lineEdit->setGeometry(0, 0, widthValue, lineHeight);
+    _lineEdit->setFixedHeight(lineHeight);
+    _lineEdit->setFixedWidth(widthValue);
     _lineEdit->setTextMargins(qRound(kContentLeftPadding * _scale), 0, qRound(kContentLeftPadding * _scale), 0);
 
     QFont listFont = baseUiFont();
+    int itemLeftPadding = qRound(kContentLeftPadding * _scale);
+    int itemRightPadding = qRound(kContentLeftPadding * _scale);
+    if (QLayout* previewLayout = _previewList->layout()) {
+        const QMargins margins = previewLayout->contentsMargins();
+        const int itemPaddingTrim = qMax(1, qRound(2 * _scale));
+        itemLeftPadding = qMax(0, itemLeftPadding - margins.left() - itemPaddingTrim + qMax(1, qRound(_scale)));
+        itemRightPadding = qMax(0, itemRightPadding - margins.right() - itemPaddingTrim);
+    }
     _previewList->setScale(_scale);
+    _previewList->setFixedWidth(widthValue);
     _previewList->setItemFont(listFont);
     _previewList->setItemHeight(kPreviewItemHeight);
     _previewList->setItemSpacing(kPreviewItemSpacing);
-    _previewList->setItemPadding(QMargins(kContentLeftPadding, 0, kContentLeftPadding, 0));
+    _previewList->setItemPadding(QMargins(itemLeftPadding, 0, itemRightPadding, 0));
 
-    resize(widthValue, lineHeight);
+    applyWindowLayout(_previewList->isVisible() ? _previewList->height() : 0);
+}
+
+void OneLinerWindow::applyWindowLayout(int previewHeight)
+{
+    const int widthValue = qRound(kInputWidth * _scale);
+    const int lineHeight = qRound(kInputHeight * _scale);
+    const int gap = qRound(kPreviewGap * _scale);
+    const int resolvedPreviewHeight = qMax(0, previewHeight);
+
+    const QSize currentSize = size();
+    const bool resizing = currentSize.width() != widthValue || currentSize.height() != lineHeight + (resolvedPreviewHeight > 0 ? gap + resolvedPreviewHeight : 0);
+
+    _lineEdit->setGeometry(0, 0, widthValue, lineHeight);
+
+    if (resolvedPreviewHeight > 0 && _previewList->isVisible()) {
+        _previewList->setGeometry(0, lineHeight + gap, widthValue, resolvedPreviewHeight);
+    } else {
+        _previewList->setGeometry(0, lineHeight + gap, widthValue, 0);
+    }
+
+    if (resizing) {
+        resize(widthValue, lineHeight + (resolvedPreviewHeight > 0 ? gap + resolvedPreviewHeight : 0));
+    }
 }
 
 void OneLinerWindow::rebuildPreviewList(const QStringList& items, bool selectionOnly)
 {
-    const int widthValue = qRound(kInputWidth * _scale);
-    const int lineHeight = qRound(kInputHeight * _scale);
     const int itemHeight = qMax(24, qRound(kPreviewItemHeight * _scale));
     const int itemSpacing = qRound(kPreviewItemSpacing * _scale);
-    const int previewGap = qRound(kPreviewGap * _scale);
 
     _previewList->clearItems();
     for (const QString& item : items) {
@@ -443,11 +712,14 @@ void OneLinerWindow::rebuildPreviewList(const QStringList& items, bool selection
 
     if (items.isEmpty()) {
         _previewScrollEnabled = false;
+        _previewTopInset = 0;
         _previewList->hide();
-        resize(widthValue, lineHeight);
+        _previewList->setMinimumHeight(0);
+        _previewList->setMaximumHeight(QWIDGETSIZE_MAX);
+        applyWindowLayout(0);
         _lineEdit->setPlaceholderText(selectionOnly
             ? QStringLiteral("未找到匹配对象")
-            : QStringLiteral("请选择对象，或键入 f: / fs: / fe: 来选择对象"));
+            : QStringLiteral("请选择对象，或输入 Maya 通配符/前导空格 flags"));
     } else {
         const int visibleItemCount = qMin(items.size(), kPreviewMaxVisibleItems);
         int actualItemHeight = itemHeight;
@@ -456,8 +728,8 @@ void OneLinerWindow::rebuildPreviewList(const QStringList& items, bool selection
         int previewBottomMargin = qRound(kPreviewListOuterMargin * _scale);
         if (QLayout* previewLayout = _previewList->layout()) {
             const QMargins margins = previewLayout->contentsMargins();
-            previewTopMargin = qRound(margins.top() * _scale);
-            previewBottomMargin = qRound(margins.bottom() * _scale);
+            previewTopMargin = margins.top();
+            previewBottomMargin = margins.bottom();
         }
 
         if (QListView* listView = _previewList->findChild<QListView*>()) {
@@ -465,7 +737,7 @@ void OneLinerWindow::rebuildPreviewList(const QStringList& items, bool selection
             actualItemSpacing = qMax(actualItemSpacing, listView->spacing());
         }
 
-        const int previewHeight = visibleItemCount * actualItemHeight
+        int previewHeight = visibleItemCount * actualItemHeight
             + qMax(0, visibleItemCount - 1) * actualItemSpacing
             + previewTopMargin
             + previewBottomMargin;
@@ -475,15 +747,35 @@ void OneLinerWindow::rebuildPreviewList(const QStringList& items, bool selection
         if (QListView* listView = _previewList->findChild<QListView*>()) {
             listView->setVerticalScrollBarPolicy(_previewScrollEnabled ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
             if (QScrollBar* scrollBar = listView->verticalScrollBar()) {
-                if (!_previewScrollEnabled) {
-                    scrollBar->setValue(scrollBar->minimum());
+                scrollBar->setValue(scrollBar->minimum());
+            }
+        }
+
+        _previewList->setMinimumHeight(previewHeight);
+        _previewList->setMaximumHeight(previewHeight);
+        _previewList->setFixedHeight(previewHeight);
+        _previewList->show();
+
+        if (QListView* listView = _previewList->findChild<QListView*>()) {
+            listView->doItemsLayout();
+            if (QAbstractItemModel* model = listView->model()) {
+                const QModelIndex firstVisibleIndex = model->index(0, 0);
+                const QRect firstVisibleRect = listView->visualRect(firstVisibleIndex);
+                if (firstVisibleIndex.isValid() && firstVisibleRect.isValid()) {
+                    _previewTopInset = qMax(0, firstVisibleRect.top());
+                }
+                const QModelIndex lastVisibleIndex = model->index(visibleItemCount - 1, 0);
+                const QRect lastVisibleRect = listView->visualRect(lastVisibleIndex);
+                if (lastVisibleIndex.isValid() && lastVisibleRect.isValid()) {
+                    previewHeight = previewTopMargin + lastVisibleRect.bottom() + 1 + previewBottomMargin + qMax(1, qRound(_scale));
+                    _previewList->setMinimumHeight(previewHeight);
+                    _previewList->setMaximumHeight(previewHeight);
+                    _previewList->setFixedHeight(previewHeight);
                 }
             }
         }
 
-        _previewList->setGeometry(0, lineHeight + previewGap, widthValue, previewHeight);
-        _previewList->show();
-        resize(widthValue, lineHeight + previewGap + previewHeight);
+        applyWindowLayout(previewHeight);
         _lineEdit->setPlaceholderText(QStringLiteral("请输入重命名规则，右击查看帮助"));
     }
     update();
