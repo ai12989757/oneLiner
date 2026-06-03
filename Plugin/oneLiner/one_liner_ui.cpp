@@ -27,6 +27,7 @@
 #include <QScreen>
 #include <QScrollBar>
 #include <QSizePolicy>
+#include <QVariantMap>
 #include <QTextBrowser>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -55,8 +56,11 @@ constexpr int kMenuHorizontalPadding = 0;
 constexpr int kMenuVerticalPadding = 5;
 constexpr int kMenuSpacing = 1;
 constexpr int kMenuTextSpacing = 10;
+constexpr int kInputHistoryLimit = 50;
+constexpr QChar kPreviewHierarchyMarker(0x2022);
 
 QPointer<OneLinerWindow> g_window;
+QStringList g_inputHistory;
 
 QWidget* mayaMainWindow()
 {
@@ -101,9 +105,9 @@ QString helpText()
         "<li><b>-3</b> 从后往前删 3 个字符</li>"
         "<li><b>--3</b> 保留前 3 个字符</li>"
         "<li><b>* ?</b> 使用 Maya 通配符选择对象，回车直接选中</li>"
-        "<li><b> -h</b> 将当前选中子级加入待重命名列表</li>"
-        "<li><b> -h -s</b> 将当前选中子级和 shape 加入待重命名列表</li>"
-        "<li><b> -type joint blendShape</b> 按类型过滤待重命名列表</li>"
+        "<li><b>-h</b> 将当前选中子级加入待重命名列表</li>"
+        "<li><b>-h -s</b> 将当前选中子级和 shape 加入待重命名列表</li>"
+        "<li><b>-type joint blendShape</b> 按类型过滤待重命名列表；无候选时等同 ls -type</li>"
         "</ul>");
 }
 
@@ -211,6 +215,7 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     , _restoreFocusAfterMenu(false)
     , _isClosing(false)
     , _previewTopInset(0)
+    , _historyIndex(-1)
     , _dragging(false)
     , _rootLayout(new QVBoxLayout(this))
     , _lineEdit(new QLineEdit(this))
@@ -241,8 +246,8 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
         " selection-background-color: #5285a6;"
         " selection-color: #ffffff;"
         "}"));
-    _lineEdit->setToolTip(QStringLiteral("输入重命名规则；支持 Maya 通配符 * ?，前导空格 flags 支持 -h、-h -s、-type。"));
-    _lineEdit->setStatusTip(QStringLiteral("输入规则后实时预览，回车执行；通配符规则回车将直接选中匹配对象。"));
+    _lineEdit->setToolTip(QStringLiteral("输入重命名规则；支持 Maya 通配符 * ?，以及 -h、-h -s、-type 等 flags。"));
+    _lineEdit->setStatusTip(QStringLiteral("输入规则后实时预览，回车执行；上下方向键可切换本次会话的输入历史。"));
 
     _rootLayout->setContentsMargins(0, 0, 0, 0);
     _rootLayout->setSpacing(0);
@@ -283,13 +288,20 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
                 return;
             }
 
-            _lineEdit->setText(_previewList->itemText(index.row()));
+            const QVariant itemData = _previewList->itemData(index.row());
+            const QVariantMap previewData = itemData.toMap();
+            const QString rawText = previewData.value(QStringLiteral("rawText")).toString();
+            _lineEdit->setText(rawText.isEmpty() ? _previewList->itemText(index.row()) : rawText);
             _lineEdit->setFocus();
             _lineEdit->selectAll();
         });
     }
 
     connect(_lineEdit, &QLineEdit::textChanged, this, [this]() { refreshPreview(); });
+    connect(_lineEdit, &QLineEdit::textEdited, this, [this]() {
+        _historyIndex = -1;
+        _historyDraft.clear();
+    });
     connect(_lineEdit, &QLineEdit::returnPressed, this, [this]() { executeRule(); });
     connect(_lineEdit, &QWidget::customContextMenuRequested, this, [this]() { showToolsMenu(); });
 
@@ -392,6 +404,12 @@ bool OneLinerWindow::eventFilter(QObject* watched, QEvent* event)
     if ((watched == _lineEdit || watched == _previewList || watched == previewView) && event != nullptr) {
         if (event->type() == QEvent::KeyPress) {
             QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+            if (watched == _lineEdit && keyEvent->key() == Qt::Key_Up) {
+                return stepHistory(-1);
+            }
+            if (watched == _lineEdit && keyEvent->key() == Qt::Key_Down) {
+                return stepHistory(1);
+            }
             if (keyEvent->key() == Qt::Key_Escape) {
                 close();
                 return true;
@@ -444,13 +462,13 @@ void OneLinerWindow::resizeEvent(QResizeEvent* event)
 void OneLinerWindow::refreshPreview()
 {
     if (!_previewEnabled) {
-        rebuildPreviewList(QStringList(), false);
+        rebuildPreviewList(QStringList(), QStringList(), false);
         return;
     }
 
     const QString text = _lineEdit->text();
     const OneLinerEngine::PreviewResult result = OneLinerEngine::preview(text);
-    rebuildPreviewList(result.items, result.selectionOnly);
+    rebuildPreviewList(result.items, result.rawItems, result.selectionOnly);
 }
 
 void OneLinerWindow::executeRule()
@@ -460,10 +478,63 @@ void OneLinerWindow::executeRule()
         return;
     }
 
+    rememberHistory(text);
     const QString command = QStringLiteral("oneLiner -execute -rule %1").arg(quoteMelString(text));
     MGlobal::executeCommand(toMString(command), false, true);
     _lineEdit->clear();
     refreshPreview();
+}
+
+void OneLinerWindow::rememberHistory(const QString& text)
+{
+    const QString value = text.trimmed().isEmpty() ? QString() : text;
+    if (value.isEmpty()) {
+        return;
+    }
+
+    g_inputHistory.removeAll(value);
+    g_inputHistory.push_back(value);
+    while (g_inputHistory.size() > kInputHistoryLimit) {
+        g_inputHistory.removeFirst();
+    }
+
+    _historyIndex = -1;
+    _historyDraft.clear();
+}
+
+bool OneLinerWindow::stepHistory(int direction)
+{
+    if (g_inputHistory.isEmpty()) {
+        return false;
+    }
+
+    if (_historyIndex < 0 || _historyIndex > g_inputHistory.size()) {
+        _historyIndex = g_inputHistory.size();
+        _historyDraft = _lineEdit->text();
+    }
+
+    if (_historyIndex == g_inputHistory.size()) {
+        _historyDraft = _lineEdit->text();
+    }
+
+    if (direction < 0) {
+        if (_historyIndex > 0) {
+            --_historyIndex;
+        }
+    } else if (direction > 0) {
+        if (_historyIndex < g_inputHistory.size() - 1) {
+            ++_historyIndex;
+        } else {
+            _historyIndex = g_inputHistory.size();
+        }
+    }
+
+    const QString nextText = _historyIndex == g_inputHistory.size()
+        ? _historyDraft
+        : g_inputHistory.value(_historyIndex);
+    _lineEdit->setText(nextText);
+    _lineEdit->setCursorPosition(nextText.size());
+    return true;
 }
 
 void OneLinerWindow::showToolsMenu()
@@ -700,14 +771,19 @@ void OneLinerWindow::applyWindowLayout(int previewHeight)
     }
 }
 
-void OneLinerWindow::rebuildPreviewList(const QStringList& items, bool selectionOnly)
+void OneLinerWindow::rebuildPreviewList(const QStringList& items, const QStringList& rawItems, bool selectionOnly)
 {
     const int itemHeight = qMax(24, qRound(kPreviewItemHeight * _scale));
     const int itemSpacing = qRound(kPreviewItemSpacing * _scale);
 
     _previewList->clearItems();
-    for (const QString& item : items) {
-        _previewList->addItem(item);
+    for (int index = 0; index < items.size(); ++index) {
+        QVariantMap previewData;
+        const QString rawText = rawItems.value(index, items.at(index));
+        previewData.insert(QStringLiteral("rawText"), rawText);
+        const QString& displayText = items.at(index);
+        previewData.insert(QStringLiteral("prefixLength"), qMax(0, displayText.size() - rawText.size()));
+        _previewList->addItem(displayText, previewData);
     }
 
     if (items.isEmpty()) {
@@ -719,7 +795,7 @@ void OneLinerWindow::rebuildPreviewList(const QStringList& items, bool selection
         applyWindowLayout(0);
         _lineEdit->setPlaceholderText(selectionOnly
             ? QStringLiteral("未找到匹配对象")
-            : QStringLiteral("请选择对象，或输入 Maya 通配符/前导空格 flags"));
+            : QStringLiteral("请选择对象，或输入 Maya 通配符 / -h / -type"));
     } else {
         const int visibleItemCount = qMin(items.size(), kPreviewMaxVisibleItems);
         int actualItemHeight = itemHeight;

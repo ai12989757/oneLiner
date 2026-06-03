@@ -19,6 +19,7 @@ public:
 
     struct PreviewResult {
         QStringList items;
+        QStringList rawItems;
         bool selectionOnly = false;
     };
 
@@ -77,8 +78,9 @@ private:
     static QVector<RenameTarget> collectAllTargets();
     static QVector<RenameTarget> collectWildcardTargets(const QString& pattern);
     static QVector<RenameTarget> filterTargetsByType(const QVector<RenameTarget>& targets, const QStringList& typeFilters);
-    static QStringList buildPreviewItems(const ParsedRule& parsed, QVector<RenameTarget>* outTargets = nullptr);
-    static QStringList buildRenamedItems(const ParsedRule& parsed, QVector<RenameTarget>* outTargets);
+    static QStringList buildPreviewItems(const ParsedRule& parsed, QVector<RenameTarget>* outTargets = nullptr, QStringList* outRawItems = nullptr);
+    static QStringList buildRenamedItems(const ParsedRule& parsed, QVector<RenameTarget>* outTargets, bool reverseForRename = true);
+    static QStringList formatPreviewItems(const QVector<RenameTarget>& targets, const QStringList& displayNames);
     static QString applyNumberPattern(QString text, int index);
     static QString uniqueNameWithDigits(QString name);
     static QString shortName(const QString& name);

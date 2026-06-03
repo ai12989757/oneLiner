@@ -59,6 +59,155 @@ bool wildcardHasSearchText(const QString& pattern)
     return !candidate.trimmed().isEmpty();
 }
 
+bool isNumericTrimRule(const QString& rule)
+{
+    static const QRegularExpression pattern(QStringLiteral("^--?\\d+$"));
+    return pattern.match(rule).hasMatch();
+}
+
+bool isFlagsRule(const QString& rule)
+{
+    if (!rule.startsWith(QChar(u'-'))) {
+        return false;
+    }
+
+    const QStringList tokens = rule.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+    if (tokens.isEmpty()) {
+        return false;
+    }
+
+    const QString& firstToken = tokens.front();
+    return firstToken == QStringLiteral("-h")
+        || firstToken == QStringLiteral("-s")
+        || firstToken == QStringLiteral("-type");
+}
+
+bool pathIsAncestorPath(const QString& parentPath, const QString& childPath)
+{
+    if (parentPath.isEmpty() || childPath.isEmpty() || parentPath == childPath) {
+        return false;
+    }
+    return childPath.startsWith(parentPath + QStringLiteral("|"), Qt::CaseSensitive);
+}
+
+int dagDepth(const QString& path)
+{
+    const int pipeCount = path.count(QChar(u'|'));
+    return path.startsWith(QChar(u'|')) ? qMax(0, pipeCount - 1) : pipeCount;
+}
+
+QString previewLabelForTarget(const OneLinerEngine::RenameTarget& target, const QString& displayName, int baseDagDepth)
+{
+    if (!target.isDag) {
+        return displayName;
+    }
+
+    const int relativeDepth = qMax(0, dagDepth(target.path) - baseDagDepth);
+    if (relativeDepth <= 0) {
+        return displayName;
+    }
+
+    QString prefix;
+    prefix.reserve(relativeDepth * 2);
+    for (int depthIndex = 0; depthIndex < relativeDepth; ++depthIndex) {
+        prefix += QChar(0x2022);
+        prefix += QChar(u' ');
+    }
+    return prefix + displayName;
+}
+
+void sortPreviewEntries(QVector<OneLinerEngine::RenameTarget>& targets, QStringList& displayNames, QStringList* rawNames)
+{
+    if (targets.size() != displayNames.size()) {
+        return;
+    }
+    if (rawNames != nullptr && rawNames->size() != displayNames.size()) {
+        return;
+    }
+
+    struct PreviewEntry {
+        OneLinerEngine::RenameTarget target;
+        QString displayName;
+        QString rawName;
+    };
+
+    QVector<PreviewEntry> entries;
+    entries.reserve(targets.size());
+    for (int index = 0; index < targets.size(); ++index) {
+        PreviewEntry entry;
+        entry.target = targets[index];
+        entry.displayName = displayNames[index];
+        entry.rawName = rawNames != nullptr ? rawNames->value(index) : displayNames[index];
+        entries.push_back(entry);
+    }
+
+    QVector<int> parentIndex(entries.size(), -1);
+    QVector<QVector<int>> childIndices(entries.size());
+    QVector<int> dagRoots;
+    QVector<int> nonDagEntries;
+
+    for (int index = 0; index < entries.size(); ++index) {
+        if (!entries[index].target.isDag) {
+            nonDagEntries.push_back(index);
+            continue;
+        }
+
+        int nearestParentIndex = -1;
+        int nearestParentDepth = -1;
+        for (int candidateIndex = 0; candidateIndex < entries.size(); ++candidateIndex) {
+            if (candidateIndex == index || !entries[candidateIndex].target.isDag) {
+                continue;
+            }
+
+            if (!pathIsAncestorPath(entries[candidateIndex].target.path, entries[index].target.path)) {
+                continue;
+            }
+
+            const int candidateDepth = dagDepth(entries[candidateIndex].target.path);
+            if (candidateDepth > nearestParentDepth) {
+                nearestParentDepth = candidateDepth;
+                nearestParentIndex = candidateIndex;
+            }
+        }
+
+        parentIndex[index] = nearestParentIndex;
+        if (nearestParentIndex >= 0) {
+            childIndices[nearestParentIndex].push_back(index);
+        } else {
+            dagRoots.push_back(index);
+        }
+    }
+
+    QVector<PreviewEntry> orderedEntries;
+    orderedEntries.reserve(entries.size());
+
+    std::function<void(int)> appendSubtree = [&](int entryIndex) {
+        orderedEntries.push_back(entries[entryIndex]);
+        for (int childIndex : childIndices[entryIndex]) {
+            appendSubtree(childIndex);
+        }
+    };
+
+    for (int rootIndex : dagRoots) {
+        appendSubtree(rootIndex);
+    }
+    for (int entryIndex : nonDagEntries) {
+        orderedEntries.push_back(entries[entryIndex]);
+    }
+
+    if (orderedEntries.size() != entries.size()) {
+        return;
+    }
+
+    for (int index = 0; index < orderedEntries.size(); ++index) {
+        targets[index] = orderedEntries[index].target;
+        displayNames[index] = orderedEntries[index].displayName;
+        if (rawNames != nullptr) {
+            (*rawNames)[index] = orderedEntries[index].rawName;
+        }
+    }
+}
+
 QString indexToLetters(int index)
 {
     QString result;
@@ -141,7 +290,7 @@ OneLinerEngine::PreviewResult OneLinerEngine::preview(const QString& rule, Scope
 
     PreviewResult result;
     result.selectionOnly = parsed.selectionOnly;
-    result.items = buildPreviewItems(parsed, nullptr);
+    result.items = buildPreviewItems(parsed, nullptr, &result.rawItems);
     return result;
 }
 
@@ -278,7 +427,7 @@ OneLinerEngine::ParsedRule OneLinerEngine::parseRule(const QString& rule, ScopeM
     parsed.rawRule = rule.trimmed();
     parsed.cleanRule = parsed.rawRule;
 
-    if (!parsed.originalRule.isEmpty() && parsed.originalRule.front().isSpace()) {
+    if (isFlagsRule(parsed.rawRule) && !isNumericTrimRule(parsed.rawRule)) {
         parsed.flagsMode = true;
         parsed.cleanRule.clear();
 
@@ -320,6 +469,10 @@ QVector<OneLinerEngine::RenameTarget> OneLinerEngine::collectTargets(const Parse
     QVector<RenameTarget> targets = parsed.includeHierarchy
         ? collectHierarchyTargets(parsed.includeShapes)
         : collectTargets(parsed.scopeMode);
+
+    if (targets.isEmpty() && !parsed.includeHierarchy && !parsed.typeFilters.isEmpty()) {
+        targets = collectAllTargets();
+    }
 
     if (!parsed.typeFilters.isEmpty()) {
         targets = filterTargetsByType(targets, parsed.typeFilters);
@@ -569,26 +722,40 @@ QVector<OneLinerEngine::RenameTarget> OneLinerEngine::filterTargetsByType(const 
     return filtered;
 }
 
-QStringList OneLinerEngine::buildPreviewItems(const ParsedRule& parsed, QVector<RenameTarget>* outTargets)
+QStringList OneLinerEngine::buildPreviewItems(const ParsedRule& parsed, QVector<RenameTarget>* outTargets, QStringList* outRawItems)
 {
     QVector<RenameTarget> targets;
     if (parsed.selectionOnly) {
         targets = collectWildcardTargets(parsed.wildcardPattern);
-        if (outTargets != nullptr) {
-            *outTargets = targets;
-        }
 
         QStringList names;
         for (const RenameTarget& target : targets) {
             names.push_back(shortName(target.currentName));
         }
-        return names;
+        QStringList rawItems = names;
+        sortPreviewEntries(targets, names, &rawItems);
+        if (outTargets != nullptr) {
+            *outTargets = targets;
+        }
+        if (outRawItems != nullptr) {
+            *outRawItems = rawItems;
+        }
+        return formatPreviewItems(targets, names);
     }
 
-    return buildRenamedItems(parsed, outTargets);
+    QStringList renamedItems = buildRenamedItems(parsed, &targets, false);
+    QStringList rawItems = renamedItems;
+    sortPreviewEntries(targets, renamedItems, &rawItems);
+    if (outTargets != nullptr) {
+        *outTargets = targets;
+    }
+    if (outRawItems != nullptr) {
+        *outRawItems = rawItems;
+    }
+    return formatPreviewItems(targets, renamedItems);
 }
 
-QStringList OneLinerEngine::buildRenamedItems(const ParsedRule& parsed, QVector<RenameTarget>* outTargets)
+QStringList OneLinerEngine::buildRenamedItems(const ParsedRule& parsed, QVector<RenameTarget>* outTargets, bool reverseForRename)
 {
     QVector<RenameTarget> targets = collectTargets(parsed);
     if (outTargets != nullptr) {
@@ -670,13 +837,39 @@ QStringList OneLinerEngine::buildRenamedItems(const ParsedRule& parsed, QVector<
         }
     }
 
-    if (needsReverse) {
+    if (needsReverse && reverseForRename) {
         std::reverse(renamedItems.begin(), renamedItems.end());
         if (outTargets != nullptr) {
             std::reverse(outTargets->begin(), outTargets->end());
         }
     }
     return renamedItems;
+}
+
+QStringList OneLinerEngine::formatPreviewItems(const QVector<RenameTarget>& targets, const QStringList& displayNames)
+{
+    if (targets.size() != displayNames.size()) {
+        return displayNames;
+    }
+
+    int baseDagDepth = std::numeric_limits<int>::max();
+    for (const RenameTarget& target : targets) {
+        if (!target.isDag) {
+            continue;
+        }
+        baseDagDepth = qMin(baseDagDepth, dagDepth(target.path));
+    }
+
+    if (baseDagDepth == std::numeric_limits<int>::max()) {
+        baseDagDepth = 0;
+    }
+
+    QStringList previewItems;
+    previewItems.reserve(displayNames.size());
+    for (int index = 0; index < displayNames.size(); ++index) {
+        previewItems.push_back(previewLabelForTarget(targets[index], displayNames[index], baseDagDepth));
+    }
+    return previewItems;
 }
 
 QString OneLinerEngine::applyNumberPattern(QString text, int index)

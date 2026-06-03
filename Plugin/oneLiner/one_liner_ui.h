@@ -4,6 +4,8 @@
 
 #include "one_background.h"
 
+#include <QString>
+#include <QStringList>
 #include <QPointer>
 #include <QWidget>
 
@@ -38,7 +40,9 @@ private:
     void updateScaleFromMaya();
     void updateLayoutMetrics();
     void applyWindowLayout(int previewHeight);
-    void rebuildPreviewList(const QStringList& items, bool selectionOnly);
+    void rebuildPreviewList(const QStringList& items, const QStringList& rawItems, bool selectionOnly);
+    void rememberHistory(const QString& text);
+    bool stepHistory(int direction);
 
     qreal _scale;
     int _maxPreviewCount;
@@ -50,8 +54,10 @@ private:
     bool _restoreFocusAfterMenu;
     bool _isClosing;
     int _previewTopInset;
+    int _historyIndex;
     bool _dragging;
     QPoint _dragStart;
+    QString _historyDraft;
     OneQtBackground _inputBackground;
     OneQtBackground _previewBackground;
     QVBoxLayout* _rootLayout;
