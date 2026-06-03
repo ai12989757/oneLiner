@@ -24,6 +24,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPointer>
+#include <QPixmap>
 #include <QScreen>
 #include <QScrollBar>
 #include <QSizePolicy>
@@ -33,6 +34,15 @@
 #include <QVBoxLayout>
 #include <QWindow>
 #include <QWheelEvent>
+#include <QSvgRenderer>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <imm.h>
+#endif
 
 namespace {
 
@@ -58,9 +68,90 @@ constexpr int kMenuSpacing = 1;
 constexpr int kMenuTextSpacing = 10;
 constexpr int kInputHistoryLimit = 50;
 constexpr QChar kPreviewHierarchyMarker(0x2022);
+constexpr int kImeStatusPollIntervalMs = 120;
+constexpr int kImeIconSize = 16;
+constexpr int kImeIconSpacing = 4;
+constexpr int kImeStatusRightPadding = 6;
+#ifdef _WIN32
+constexpr WPARAM kImeGetConversionMode = 0x0001;
+constexpr WPARAM kImeGetOpenStatus = 0x0005;
+#endif
+
+constexpr char kChineseSvg[] = R"SVG(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width="4"><rect width="36" height="36" x="6" y="6" stroke-linejoin="round" rx="3" /><path stroke-linejoin="round" d="M14 18h20v10H14z" /><path d="M24 14v21" /></g></svg>)SVG";
+constexpr char kEnglishSvg[] = R"SVG(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"><rect width="36" height="36" x="6" y="6" rx="3" /><path d="M13 31V17h8m-8 7h7.5M13 31h7.5m5.5 0V19m0 12v-6.5a4.5 4.5 0 0 1 4.5-4.5v0a4.5 4.5 0 0 1 4.5 4.5V31" /></g></svg>)SVG";
+constexpr char kCapsLockSvg[] = R"SVG(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="#ffffff" d="M11.144 2.53a1.5 1.5 0 0 0-2.288 0l-6.617 7.803a1 1 0 0 0 .763 1.647H6v3.017a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V11.98h2.996a1 1 0 0 0 .763-1.647zM6.5 17a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1z" /></svg>)SVG";
 
 QPointer<OneLinerWindow> g_window;
 QStringList g_inputHistory;
+
+QPixmap renderWhiteSvgIcon(const QByteArray& svgData, const QSize& size)
+{
+    if (size.isEmpty()) {
+        return QPixmap();
+    }
+
+    QSvgRenderer renderer(svgData);
+    if (!renderer.isValid()) {
+        return QPixmap();
+    }
+
+    QPixmap pixmap(size);
+    pixmap.fill(Qt::transparent);
+
+    QPainter painter(&pixmap);
+    renderer.render(&painter);
+    return pixmap;
+}
+
+#ifdef _WIN32
+HWND focusedInputWindow()
+{
+    const HWND foreground = ::GetForegroundWindow();
+    if (foreground == nullptr) {
+        return nullptr;
+    }
+
+    const DWORD threadId = ::GetWindowThreadProcessId(foreground, nullptr);
+    if (threadId == 0) {
+        return foreground;
+    }
+
+    GUITHREADINFO threadInfo = {};
+    threadInfo.cbSize = sizeof(GUITHREADINFO);
+    if (::GetGUIThreadInfo(threadId, &threadInfo)) {
+        return threadInfo.hwndFocus != nullptr ? threadInfo.hwndFocus : foreground;
+    }
+
+    return foreground;
+}
+
+int queryImeControl(HWND hwnd, WPARAM command)
+{
+    if (hwnd == nullptr) {
+        return -1;
+    }
+
+    const HWND imeWindow = ::ImmGetDefaultIMEWnd(hwnd);
+    if (imeWindow == nullptr) {
+        return -1;
+    }
+
+    DWORD_PTR result = 0;
+    const LRESULT ok = ::SendMessageTimeoutW(
+        imeWindow,
+        WM_IME_CONTROL,
+        command,
+        0,
+        SMTO_NORMAL,
+        100,
+        &result);
+    if (ok == 0) {
+        return -1;
+    }
+
+    return static_cast<int>(result);
+}
+#endif
 
 QWidget* mayaMainWindow()
 {
@@ -216,9 +307,15 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     , _isClosing(false)
     , _previewTopInset(0)
     , _historyIndex(-1)
+    , _imeIsChinese(true)
+    , _capsLockOn(false)
     , _dragging(false)
     , _rootLayout(new QVBoxLayout(this))
     , _lineEdit(new QLineEdit(this))
+    , _imeStatusHost(new QWidget(_lineEdit))
+    , _imeLanguageLabel(new QLabel(_imeStatusHost))
+    , _imeCapsLabel(new QLabel(_imeStatusHost))
+    , _imeStatusTimer(new QTimer(this))
     , _previewList(new OneQtList(this, false))
 {
     setAttribute(Qt::WA_TranslucentBackground, true);
@@ -248,6 +345,12 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
         "}"));
     _lineEdit->setToolTip(QStringLiteral("输入重命名规则；支持 Maya 通配符 * ?，以及 -h、-h -s、-type 等 flags。"));
     _lineEdit->setStatusTip(QStringLiteral("输入规则后实时预览，回车执行；上下方向键可切换本次会话的输入历史。"));
+
+    _imeStatusHost->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    _imeStatusHost->setAutoFillBackground(false);
+    _imeLanguageLabel->setAlignment(Qt::AlignCenter);
+    _imeCapsLabel->setAlignment(Qt::AlignCenter);
+    _imeCapsLabel->hide();
 
     _rootLayout->setContentsMargins(0, 0, 0, 0);
     _rootLayout->setSpacing(0);
@@ -304,8 +407,11 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     });
     connect(_lineEdit, &QLineEdit::returnPressed, this, [this]() { executeRule(); });
     connect(_lineEdit, &QWidget::customContextMenuRequested, this, [this]() { showToolsMenu(); });
+    connect(_imeStatusTimer, &QTimer::timeout, this, [this]() { refreshImeStatus(); });
 
     updateScaleFromMaya();
+    refreshImeStatus();
+    _imeStatusTimer->start(kImeStatusPollIntervalMs);
     positionNearCursor();
     _previewList->hide();
     _lineEdit->setFocus();
@@ -721,13 +827,24 @@ void OneLinerWindow::updateLayoutMetrics()
     const int widthValue = qRound(kInputWidth * _scale);
     const int lineHeight = qRound(kInputHeight * _scale);
     const int fontSize = qRound(kInputFontSize * _scale);
+    const int imeIconSize = qRound(kImeIconSize * _scale);
+    const int imeSpacing = qRound(kImeIconSpacing * _scale);
+    const int imeRightPadding = qRound(kImeStatusRightPadding * _scale);
+    const int imeHostWidth = imeIconSize * 2 + imeSpacing;
 
     QFont editFont = baseUiFont();
     editFont.setPixelSize(fontSize);
     _lineEdit->setFont(editFont);
     _lineEdit->setFixedHeight(lineHeight);
     _lineEdit->setFixedWidth(widthValue);
-    _lineEdit->setTextMargins(qRound(kContentLeftPadding * _scale), 0, qRound(kContentLeftPadding * _scale), 0);
+    _lineEdit->setTextMargins(qRound(kContentLeftPadding * _scale), 0, imeHostWidth + imeRightPadding + qRound(4 * _scale), 0);
+
+    _imeStatusHost->setGeometry(widthValue - imeHostWidth - imeRightPadding, 0, imeHostWidth, lineHeight);
+    _imeCapsLabel->setGeometry(0, (lineHeight - imeIconSize) / 2, imeIconSize, imeIconSize);
+    _imeLanguageLabel->setGeometry(imeIconSize + imeSpacing, (lineHeight - imeIconSize) / 2, imeIconSize, imeIconSize);
+    _imeLanguageLabel->setPixmap(renderWhiteSvgIcon(QByteArray(_imeIsChinese ? kChineseSvg : kEnglishSvg), QSize(imeIconSize, imeIconSize)));
+    _imeCapsLabel->setPixmap(renderWhiteSvgIcon(QByteArray(kCapsLockSvg), QSize(imeIconSize, imeIconSize)));
+    _imeCapsLabel->setVisible(_capsLockOn);
 
     QFont listFont = baseUiFont();
     int itemLeftPadding = qRound(kContentLeftPadding * _scale);
@@ -746,6 +863,37 @@ void OneLinerWindow::updateLayoutMetrics()
     _previewList->setItemPadding(QMargins(itemLeftPadding, 0, itemRightPadding, 0));
 
     applyWindowLayout(_previewList->isVisible() ? _previewList->height() : 0);
+}
+
+void OneLinerWindow::refreshImeStatus()
+{
+#ifdef _WIN32
+    const HWND focusedWindow = focusedInputWindow();
+    const bool capsLockOn = (::GetKeyState(VK_CAPITAL) & 0x0001) != 0;
+
+    bool isChinese = _imeIsChinese;
+    const int imeOpen = queryImeControl(focusedWindow, kImeGetOpenStatus);
+    if (imeOpen == 0) {
+        isChinese = false;
+    } else if (imeOpen > 0) {
+        const int conversionMode = queryImeControl(focusedWindow, kImeGetConversionMode);
+        if (conversionMode >= 0) {
+            isChinese = (conversionMode & 0x0001) != 0;
+        }
+    }
+
+    if (_imeIsChinese == isChinese && _capsLockOn == capsLockOn) {
+        return;
+    }
+
+    _imeIsChinese = isChinese;
+    _capsLockOn = capsLockOn;
+    updateLayoutMetrics();
+#else
+    if (_imeStatusHost != nullptr) {
+        _imeStatusHost->hide();
+    }
+#endif
 }
 
 void OneLinerWindow::applyWindowLayout(int previewHeight)

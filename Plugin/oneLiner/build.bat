@@ -32,7 +32,7 @@ if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 set "CORE_DIR=%ONEQT_DIR%\Core"
 set "WIDGETS_DIR=%ONEQT_DIR%\Widgets"
 set "CPPFLAGS=/nologo /std:c++17 /utf-8 /EHsc /MD /W4 /Zc:__cplusplus /DWIN32 /D_WINDOWS /DUNICODE /D_UNICODE /DNT_PLUGIN /DQT_NO_KEYWORDS /DQT_DEPRECATED_WARNINGS /DONETWIDGETS_STATIC /I"%PLUGIN_DIR%" /I"%CORE_DIR%" /I"%CORE_DIR%\OneAnimIcon" /I"%CORE_DIR%\OneBackground" /I"%CORE_DIR%\OneBrush" /I"%CORE_DIR%\OneFont" /I"%CORE_DIR%\OneIcon" /I"%CORE_DIR%\Internal" /I"%WIDGETS_DIR%" /I"%WIDGETS_DIR%\OneAction" /I"%WIDGETS_DIR%\OneList" /I"%WIDGETS_DIR%\OneMenu" /I"%WIDGETS_DIR%\OneScrollBar" /I"%WIDGETS_DIR%\OneSeparator" /I"%MAYA_INCLUDE%" /I"%QT_INCLUDE%" /I"%QT_INCLUDE%\QtCore" /I"%QT_INCLUDE%\QtGui" /I"%QT_INCLUDE%\QtWidgets" /I"%QT_SVG_INCLUDE%\QtSvg""
-set "LDFLAGS=/NOLOGO /DLL /INCREMENTAL:NO /MACHINE:X64 /LIBPATH:"%MAYA_LIB%" /LIBPATH:"%QT_LIB%" Foundation.lib OpenMaya.lib OpenMayaUI.lib Qt5Core.lib Qt5Gui.lib Qt5Widgets.lib Qt5Svg.lib user32.lib gdi32.lib shell32.lib advapi32.lib"
+set "LDFLAGS=/NOLOGO /DLL /INCREMENTAL:NO /MACHINE:X64 /LIBPATH:"%MAYA_LIB%" /LIBPATH:"%QT_LIB%" Foundation.lib OpenMaya.lib OpenMayaUI.lib Qt5Core.lib Qt5Gui.lib Qt5Widgets.lib Qt5Svg.lib user32.lib gdi32.lib shell32.lib advapi32.lib imm32.lib"
 
 pushd "%BUILD_DIR%"
 del /q *.obj *.exp *.lib *.pdb *.ilk *.mll 2>nul

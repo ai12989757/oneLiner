@@ -11,8 +11,10 @@
 
 class QDialog;
 class QLineEdit;
+class QLabel;
 class OneQtList;
 class OneQtMenu;
+class QTimer;
 class QVBoxLayout;
 
 class OneLinerWindow : public QWidget
@@ -39,6 +41,7 @@ private:
     void positionNearCursor();
     void updateScaleFromMaya();
     void updateLayoutMetrics();
+    void refreshImeStatus();
     void applyWindowLayout(int previewHeight);
     void rebuildPreviewList(const QStringList& items, const QStringList& rawItems, bool selectionOnly);
     void rememberHistory(const QString& text);
@@ -55,6 +58,8 @@ private:
     bool _isClosing;
     int _previewTopInset;
     int _historyIndex;
+    bool _imeIsChinese;
+    bool _capsLockOn;
     bool _dragging;
     QPoint _dragStart;
     QString _historyDraft;
@@ -62,6 +67,10 @@ private:
     OneQtBackground _previewBackground;
     QVBoxLayout* _rootLayout;
     QLineEdit* _lineEdit;
+    QWidget* _imeStatusHost;
+    QLabel* _imeLanguageLabel;
+    QLabel* _imeCapsLabel;
+    QTimer* _imeStatusTimer;
     OneQtList* _previewList;
     QPointer<OneQtMenu> _toolsMenu;
     QPointer<QDialog> _helpDialog;
