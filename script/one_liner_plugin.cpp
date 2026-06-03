@@ -49,16 +49,31 @@ QString commandHelp()
         "  -help / -hp                   输出帮助文本");
 }
 
+QString resolveProjectRoot(const QDir& pluginBinDir)
+{
+    QDir candidate = pluginBinDir;
+    for (int depth = 0; depth < 4; ++depth) {
+        if (candidate.exists(QStringLiteral("images"))) {
+            return candidate.absolutePath();
+        }
+        if (!candidate.cdUp()) {
+            break;
+        }
+    }
+
+    return pluginBinDir.absoluteFilePath(QStringLiteral("../.."));
+}
+
 void registerMediaSearchPaths(const MFnPlugin& plugin)
 {
     const QFileInfo pluginFile(QString::fromUtf8(plugin.loadPath().asChar()));
     const QDir pluginBinDir = pluginFile.absoluteDir();
-    const QString projectRoot = pluginBinDir.absoluteFilePath(QStringLiteral("../.."));
+    const QString projectRoot = resolveProjectRoot(pluginBinDir);
     const QString imagesRoot = QDir(projectRoot).absoluteFilePath(QStringLiteral("images"));
     const QString iconsRoot = QDir(imagesRoot).absoluteFilePath(QStringLiteral("icon"));
 
-    QDir::addSearchPath(QStringLiteral("oneLinerImages"), imagesRoot);
-    QDir::addSearchPath(QStringLiteral("oneLinerIcons"), iconsRoot);
+    QDir::setSearchPaths(QStringLiteral("oneLinerImages"), QStringList{imagesRoot});
+    QDir::setSearchPaths(QStringLiteral("oneLinerIcons"), QStringList{iconsRoot});
 }
 
 OneLinerEngine::ScopeMode parseMode(const QString& modeText)

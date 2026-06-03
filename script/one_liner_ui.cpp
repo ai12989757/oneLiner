@@ -1,5 +1,7 @@
 #include "one_liner_ui.h"
 
+#include "one_liner_help.h"
+
 #include "one_list.h"
 #include "one_menu.h"
 #include "one_menu_action.h"
@@ -29,7 +31,6 @@
 #include <QScrollBar>
 #include <QSizePolicy>
 #include <QVariantMap>
-#include <QTextBrowser>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWindow>
@@ -69,17 +70,22 @@ constexpr int kMenuTextSpacing = 10;
 constexpr int kInputHistoryLimit = 50;
 constexpr QChar kPreviewHierarchyMarker(0x2022);
 constexpr int kImeStatusPollIntervalMs = 120;
-constexpr int kImeIconSize = 16;
-constexpr int kImeIconSpacing = 4;
-constexpr int kImeStatusRightPadding = 6;
+constexpr int kImeIconSize = 18;
+constexpr int kImeStatusGlyphSize = 10;
+constexpr int kImeClearGlyphSize = 12;
+constexpr int kImeIconSpacing = 0;
+constexpr int kImeStatusRightPadding = 4;
 #ifdef _WIN32
 constexpr WPARAM kImeGetConversionMode = 0x0001;
 constexpr WPARAM kImeGetOpenStatus = 0x0005;
+constexpr WPARAM kImeSetConversionMode = 0x0002;
+constexpr WPARAM kImeSetOpenStatus = 0x0006;
 #endif
 
-constexpr char kChineseSvg[] = R"SVG(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width="4"><rect width="36" height="36" x="6" y="6" stroke-linejoin="round" rx="3" /><path stroke-linejoin="round" d="M14 18h20v10H14z" /><path d="M24 14v21" /></g></svg>)SVG";
-constexpr char kEnglishSvg[] = R"SVG(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"><rect width="36" height="36" x="6" y="6" rx="3" /><path d="M13 31V17h8m-8 7h7.5M13 31h7.5m5.5 0V19m0 12v-6.5a4.5 4.5 0 0 1 4.5-4.5v0a4.5 4.5 0 0 1 4.5 4.5V31" /></g></svg>)SVG";
-constexpr char kCapsLockSvg[] = R"SVG(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="#ffffff" d="M11.144 2.53a1.5 1.5 0 0 0-2.288 0l-6.617 7.803a1 1 0 0 0 .763 1.647H6v3.017a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V11.98h2.996a1 1 0 0 0 .763-1.647zM6.5 17a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1z" /></svg>)SVG";
+constexpr char kClearTextIconPath[] = "oneLinerIcons:fluent--dismiss-20-filled.svg";
+constexpr char kLanguageChineseIconPath[] = "oneLinerIcons:Chinese.svg";
+constexpr char kLanguageEnglishIconPath[] = "oneLinerIcons:English.svg";
+constexpr char kCapsLockIconPath[] = "oneLinerIcons:fluent--keyboard-shift-uppercase-20-filled.svg";
 
 QPointer<OneLinerWindow> g_window;
 QStringList g_inputHistory;
@@ -151,6 +157,60 @@ int queryImeControl(HWND hwnd, WPARAM command)
 
     return static_cast<int>(result);
 }
+
+bool setImeControl(HWND hwnd, WPARAM command, LPARAM value)
+{
+    if (hwnd == nullptr) {
+        return false;
+    }
+
+    const HWND imeWindow = ::ImmGetDefaultIMEWnd(hwnd);
+    if (imeWindow == nullptr) {
+        return false;
+    }
+
+    DWORD_PTR result = 0;
+    const LRESULT ok = ::SendMessageTimeoutW(
+        imeWindow,
+        WM_IME_CONTROL,
+        command,
+        value,
+        SMTO_NORMAL,
+        100,
+        &result);
+    return ok != 0;
+}
+
+bool setImeChineseState(HWND hwnd, bool chinese)
+{
+    if (hwnd == nullptr) {
+        return false;
+    }
+
+    if (!chinese) {
+        return setImeControl(hwnd, kImeSetOpenStatus, FALSE);
+    }
+
+    const int currentMode = queryImeControl(hwnd, kImeGetConversionMode);
+    const LPARAM nextMode = currentMode >= 0
+        ? static_cast<LPARAM>(currentMode | IME_CMODE_NATIVE)
+        : static_cast<LPARAM>(IME_CMODE_NATIVE);
+
+    const bool opened = setImeControl(hwnd, kImeSetOpenStatus, TRUE);
+    const bool converted = setImeControl(hwnd, kImeSetConversionMode, nextMode);
+    return opened || converted;
+}
+
+void sendVirtualKey(WORD virtualKey)
+{
+    INPUT inputs[2] = {};
+    inputs[0].type = INPUT_KEYBOARD;
+    inputs[0].ki.wVk = virtualKey;
+    inputs[1].type = INPUT_KEYBOARD;
+    inputs[1].ki.wVk = virtualKey;
+    inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+    ::SendInput(2, inputs, sizeof(INPUT));
+}
 #endif
 
 QWidget* mayaMainWindow()
@@ -182,25 +242,7 @@ qreal mayaDpiScale(QWidget* widget)
     return qMax<qreal>(1.0, qMax(screenScale, deviceScale));
 }
 
-QString helpText()
-{
-    return QStringLiteral(
-        "<h3>oneLiner 规则</h3>"
-        "<p>直接输入新名称即可实时预览并回车执行。</p>"
-        "<ul>"
-        "<li><b>!</b> 复用旧名称，例如 side_!</li>"
-        "<li><b>#</b> 数字序号，例如 ctrl_##//3</li>"
-        "<li><b>@</b> 字母序号，例如 joint_@</li>"
-        "<li><b>old&gt;new</b> 文本替换</li>"
-        "<li><b>+3</b> 从前往后删 3 个字符</li>"
-        "<li><b>-3</b> 从后往前删 3 个字符</li>"
-        "<li><b>--3</b> 保留前 3 个字符</li>"
-        "<li><b>* ?</b> 使用 Maya 通配符选择对象，回车直接选中</li>"
-        "<li><b>-h</b> 将当前选中子级加入待重命名列表</li>"
-        "<li><b>-h -s</b> 将当前选中子级和 shape 加入待重命名列表</li>"
-        "<li><b>-type joint blendShape</b> 按类型过滤待重命名列表；无候选时等同 ls -type</li>"
-        "</ul>");
-}
+QFont baseUiFont();
 
 QString quoteMelString(const QString& value)
 {
@@ -292,6 +334,48 @@ void syncMenuActionStyle(OneQtAction* action, const QFont& font, const QVariant&
     }
 }
 
+void configureInputIconActionStyle(OneQtAction* action, qreal scale, const QVariant& iconSource, int iconGlyphSize = kImeIconSize)
+{
+    if (action == nullptr) {
+        return;
+    }
+
+    const OneQtAction::StateName states[] = {
+        OneQtAction::Normal,
+        OneQtAction::Hover,
+        OneQtAction::Pressed,
+        OneQtAction::Disabled,
+    };
+
+    for (OneQtAction::StateName state : states) {
+        OneQtActionStyle style = action->style(state);
+        style.text.clear();
+        style.iconSource = iconSource;
+        style.iconCanvasSize = QSize(kImeIconSize, kImeIconSize);
+        style.iconSize = QSize(iconGlyphSize, iconGlyphSize);
+        style.padding = QMargins(0, 0, 0, 0);
+        style.spacing = 0;
+        style.borderWidth = 0.0;
+        style.cornerRadii = {kItemCornerRadius, kItemCornerRadius, kItemCornerRadius, kItemCornerRadius};
+        style.iconBrush = OneQtBrush::fromColor(QColor(QStringLiteral("#f4f6f8")));
+        style.borderBrush = OneQtBrush::fromColor(QColor(0, 0, 0, 0));
+        style.backgroundBrush = OneQtBrush::fromColor(QColor(0, 0, 0, 0));
+
+        if (state == OneQtAction::Hover) {
+            style.backgroundBrush = OneQtBrush::fromColor(QColor(255, 255, 255, 28));
+        } else if (state == OneQtAction::Pressed) {
+            style.backgroundBrush = OneQtBrush::fromColor(QColor(255, 255, 255, 42));
+        } else if (state == OneQtAction::Disabled) {
+            style.iconBrush = OneQtBrush::fromColor(QColor(244, 246, 248, 90));
+        }
+
+        action->setStyle(state, style);
+    }
+
+    action->setScale(scale);
+    action->setPreferredSize(QSize(kImeIconSize, kImeIconSize));
+}
+
 } // namespace
 
 OneLinerWindow::OneLinerWindow(QWidget* parent)
@@ -313,8 +397,9 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     , _rootLayout(new QVBoxLayout(this))
     , _lineEdit(new QLineEdit(this))
     , _imeStatusHost(new QWidget(_lineEdit))
-    , _imeLanguageLabel(new QLabel(_imeStatusHost))
-    , _imeCapsLabel(new QLabel(_imeStatusHost))
+    , _clearTextAction(new OneQtAction(_imeStatusHost))
+    , _imeLanguageAction(new OneQtAction(_imeStatusHost))
+    , _imeCapsAction(new OneQtAction(_imeStatusHost))
     , _imeStatusTimer(new QTimer(this))
     , _previewList(new OneQtList(this, false))
 {
@@ -334,7 +419,7 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     _lineEdit->setFrame(false);
     _lineEdit->setAttribute(Qt::WA_TranslucentBackground, true);
     _lineEdit->setContextMenuPolicy(Qt::CustomContextMenu);
-    _lineEdit->setPlaceholderText(QStringLiteral("请输入重命名规则，右击查看帮助"));
+    _lineEdit->setPlaceholderText(QStringLiteral("请输入重命名规则，右击查看帮助；按住中间拖动以移动窗口"));
     _lineEdit->setStyleSheet(QStringLiteral(
         "QLineEdit {"
         " background: transparent;"
@@ -346,11 +431,25 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     _lineEdit->setToolTip(QStringLiteral("输入重命名规则；支持 Maya 通配符 * ?，以及 -h、-h -s、-type 等 flags。"));
     _lineEdit->setStatusTip(QStringLiteral("输入规则后实时预览，回车执行；上下方向键可切换本次会话的输入历史。"));
 
-    _imeStatusHost->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    _imeStatusHost->setAttribute(Qt::WA_TransparentForMouseEvents, false);
     _imeStatusHost->setAutoFillBackground(false);
-    _imeLanguageLabel->setAlignment(Qt::AlignCenter);
-    _imeCapsLabel->setAlignment(Qt::AlignCenter);
-    _imeCapsLabel->hide();
+    _clearTextAction->hide();
+    _clearTextAction->setToolTip(QStringLiteral("清除当前输入文本。"));
+    _clearTextAction->setStatusTip(QStringLiteral("点击清空输入框内容。"));
+    _clearTextAction->setClickedHandler([this]() {
+        _lineEdit->clear();
+        _lineEdit->setFocus();
+    });
+    configureInputIconActionStyle(_clearTextAction, _scale, QString::fromUtf8(kClearTextIconPath), kImeClearGlyphSize);
+    _imeLanguageAction->setToolTip(QStringLiteral("点击切换中英文状态。"));
+    _imeLanguageAction->setStatusTip(QStringLiteral("点击切换当前输入法的中英文状态。"));
+    _imeLanguageAction->setClickedHandler([this]() { toggleImeLanguage(); });
+    configureInputIconActionStyle(_imeLanguageAction, _scale, QString::fromUtf8(kLanguageChineseIconPath), kImeStatusGlyphSize);
+    _imeCapsAction->setToolTip(QStringLiteral("点击切换大写锁定。"));
+    _imeCapsAction->setStatusTip(QStringLiteral("点击切换 Caps Lock。"));
+    _imeCapsAction->setClickedHandler([this]() { toggleCapsLock(); });
+    configureInputIconActionStyle(_imeCapsAction, _scale, QString::fromUtf8(kCapsLockIconPath), kImeStatusGlyphSize);
+    _imeCapsAction->hide();
 
     _rootLayout->setContentsMargins(0, 0, 0, 0);
     _rootLayout->setSpacing(0);
@@ -400,7 +499,10 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
         });
     }
 
-    connect(_lineEdit, &QLineEdit::textChanged, this, [this]() { refreshPreview(); });
+    connect(_lineEdit, &QLineEdit::textChanged, this, [this]() {
+        refreshPreview();
+        updateLayoutMetrics();
+    });
     connect(_lineEdit, &QLineEdit::textEdited, this, [this]() {
         _historyIndex = -1;
         _historyDraft.clear();
@@ -791,21 +893,8 @@ void OneLinerWindow::showHelpDialog()
         return;
     }
 
-    QDialog* dialog = new QDialog(this, Qt::Window | Qt::WindowCloseButtonHint | Qt::WindowTitleHint);
-    dialog->setAttribute(Qt::WA_DeleteOnClose, true);
-    dialog->setWindowTitle(QStringLiteral("oneLiner 帮助"));
-    dialog->resize(qRound(520 * _scale), qRound(420 * _scale));
-
-    QVBoxLayout* layout = new QVBoxLayout(dialog);
-    layout->setContentsMargins(qRound(16 * _scale), qRound(16 * _scale), qRound(16 * _scale), qRound(16 * _scale));
-
-    QTextBrowser* browser = new QTextBrowser(dialog);
-    browser->setOpenExternalLinks(true);
-    browser->setHtml(helpText());
-    layout->addWidget(browser);
-
-    _helpDialog = dialog;
-    dialog->show();
+    _helpDialog = OneLinerHelp::createHelpDialog(this, _scale);
+    _helpDialog->show();
 }
 
 void OneLinerWindow::positionNearCursor()
@@ -830,7 +919,11 @@ void OneLinerWindow::updateLayoutMetrics()
     const int imeIconSize = qRound(kImeIconSize * _scale);
     const int imeSpacing = qRound(kImeIconSpacing * _scale);
     const int imeRightPadding = qRound(kImeStatusRightPadding * _scale);
-    const int imeHostWidth = imeIconSize * 2 + imeSpacing;
+    const bool showClearTextAction = !_lineEdit->text().isEmpty();
+    const int visibleIconCount = 1 + (_capsLockOn ? 1 : 0) + (showClearTextAction ? 1 : 0);
+    const int imeHostWidth = visibleIconCount > 0
+        ? imeIconSize * visibleIconCount + imeSpacing * qMax(0, visibleIconCount - 1)
+        : 0;
 
     QFont editFont = baseUiFont();
     editFont.setPixelSize(fontSize);
@@ -839,12 +932,31 @@ void OneLinerWindow::updateLayoutMetrics()
     _lineEdit->setFixedWidth(widthValue);
     _lineEdit->setTextMargins(qRound(kContentLeftPadding * _scale), 0, imeHostWidth + imeRightPadding + qRound(4 * _scale), 0);
 
+    configureInputIconActionStyle(_clearTextAction, _scale, QString::fromUtf8(kClearTextIconPath), kImeClearGlyphSize);
+    configureInputIconActionStyle(
+        _imeLanguageAction,
+        _scale,
+        QString::fromUtf8(_imeIsChinese ? kLanguageChineseIconPath : kLanguageEnglishIconPath),
+        kImeStatusGlyphSize);
+    configureInputIconActionStyle(_imeCapsAction, _scale, QString::fromUtf8(kCapsLockIconPath), kImeStatusGlyphSize);
     _imeStatusHost->setGeometry(widthValue - imeHostWidth - imeRightPadding, 0, imeHostWidth, lineHeight);
-    _imeCapsLabel->setGeometry(0, (lineHeight - imeIconSize) / 2, imeIconSize, imeIconSize);
-    _imeLanguageLabel->setGeometry(imeIconSize + imeSpacing, (lineHeight - imeIconSize) / 2, imeIconSize, imeIconSize);
-    _imeLanguageLabel->setPixmap(renderWhiteSvgIcon(QByteArray(_imeIsChinese ? kChineseSvg : kEnglishSvg), QSize(imeIconSize, imeIconSize)));
-    _imeCapsLabel->setPixmap(renderWhiteSvgIcon(QByteArray(kCapsLockSvg), QSize(imeIconSize, imeIconSize)));
-    _imeCapsLabel->setVisible(_capsLockOn);
+    int currentX = 0;
+    if (showClearTextAction) {
+        _clearTextAction->setGeometry(currentX, (lineHeight - imeIconSize) / 2, imeIconSize, imeIconSize);
+        _clearTextAction->show();
+        currentX += imeIconSize + imeSpacing;
+    } else {
+        _clearTextAction->hide();
+    }
+    if (_capsLockOn) {
+        _imeCapsAction->setGeometry(currentX, (lineHeight - imeIconSize) / 2, imeIconSize, imeIconSize);
+        _imeCapsAction->show();
+        currentX += imeIconSize + imeSpacing;
+    } else {
+        _imeCapsAction->hide();
+    }
+    _imeLanguageAction->setGeometry(currentX, (lineHeight - imeIconSize) / 2, imeIconSize, imeIconSize);
+    _imeLanguageAction->show();
 
     QFont listFont = baseUiFont();
     int itemLeftPadding = qRound(kContentLeftPadding * _scale);
@@ -896,6 +1008,45 @@ void OneLinerWindow::refreshImeStatus()
 #endif
 }
 
+void OneLinerWindow::toggleImeLanguage()
+{
+#ifdef _WIN32
+    const HWND focusedWindow = focusedInputWindow();
+    if (setImeChineseState(focusedWindow, !_imeIsChinese)) {
+        QTimer::singleShot(60, this, [this]() {
+            refreshImeStatus();
+            if (_lineEdit != nullptr) {
+                _lineEdit->setFocus();
+            }
+        });
+        return;
+    }
+
+    sendVirtualKey(_imeIsChinese ? VK_NONCONVERT : VK_CONVERT);
+    QTimer::singleShot(60, this, [this]() {
+        refreshImeStatus();
+        if (_lineEdit != nullptr) {
+            _lineEdit->setFocus();
+        }
+    });
+#else
+    if (_lineEdit != nullptr) {
+        _lineEdit->setFocus();
+    }
+#endif
+}
+
+void OneLinerWindow::toggleCapsLock()
+{
+#ifdef _WIN32
+    sendVirtualKey(VK_CAPITAL);
+    refreshImeStatus();
+#endif
+    if (_lineEdit != nullptr) {
+        _lineEdit->setFocus();
+    }
+}
+
 void OneLinerWindow::applyWindowLayout(int previewHeight)
 {
     const int widthValue = qRound(kInputWidth * _scale);
@@ -942,8 +1093,8 @@ void OneLinerWindow::rebuildPreviewList(const QStringList& items, const QStringL
         _previewList->setMaximumHeight(QWIDGETSIZE_MAX);
         applyWindowLayout(0);
         _lineEdit->setPlaceholderText(selectionOnly
-            ? QStringLiteral("未找到匹配对象")
-            : QStringLiteral("请选择对象，或输入 Maya 通配符 / -h / -type"));
+            ? QStringLiteral("未找到匹配对象；按住中间拖动以移动窗口")
+            : QStringLiteral("请选择对象，或使用通配符按名称选择或键入-type flag按类型选择；按住中间拖动以移动窗口"));
     } else {
         const int visibleItemCount = qMin(items.size(), kPreviewMaxVisibleItems);
         int actualItemHeight = itemHeight;
@@ -1000,7 +1151,7 @@ void OneLinerWindow::rebuildPreviewList(const QStringList& items, const QStringL
         }
 
         applyWindowLayout(previewHeight);
-        _lineEdit->setPlaceholderText(QStringLiteral("请输入重命名规则，右击查看帮助"));
+        _lineEdit->setPlaceholderText(QStringLiteral("请输入重命名规则，右击查看帮助；按住中间拖动以移动窗口"));
     }
     update();
 }

@@ -11,7 +11,7 @@
 
 class QDialog;
 class QLineEdit;
-class QLabel;
+class OneQtAction;
 class OneQtList;
 class OneQtMenu;
 class QTimer;
@@ -42,6 +42,8 @@ private:
     void updateScaleFromMaya();
     void updateLayoutMetrics();
     void refreshImeStatus();
+    void toggleImeLanguage();
+    void toggleCapsLock();
     void applyWindowLayout(int previewHeight);
     void rebuildPreviewList(const QStringList& items, const QStringList& rawItems, bool selectionOnly);
     void rememberHistory(const QString& text);
@@ -68,8 +70,9 @@ private:
     QVBoxLayout* _rootLayout;
     QLineEdit* _lineEdit;
     QWidget* _imeStatusHost;
-    QLabel* _imeLanguageLabel;
-    QLabel* _imeCapsLabel;
+    OneQtAction* _clearTextAction;
+    OneQtAction* _imeLanguageAction;
+    OneQtAction* _imeCapsAction;
     QTimer* _imeStatusTimer;
     OneQtList* _previewList;
     QPointer<OneQtMenu> _toolsMenu;
