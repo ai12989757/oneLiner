@@ -5,6 +5,7 @@
 #include "one_list.h"
 #include "one_menu.h"
 #include "one_menu_action.h"
+#include "one_scroll_bar.h"
 #include "oneqt_brush.h"
 #include "oneqt_system.h"
 
@@ -50,8 +51,10 @@ namespace {
 constexpr const char* kPreviewEnabledOptionVar = "oneLinerPreviewEnabled";
 constexpr const char* kAutoCloseEnabledOptionVar = "oneLinerAutoCloseEnabled";
 constexpr const char* kWildcardIncludeShapesOptionVar = "oneLinerWildcardIncludeShapes";
+constexpr const char* kInputWidthOptionVar = "oneLinerInputWidth";
 
 constexpr int kInputWidth = 320;
+constexpr int kInputMinWidth = 220;
 constexpr int kInputHeight = 26;
 constexpr int kInputFontSize = 12;
 constexpr int kPreviewItemHeight = 22;
@@ -75,6 +78,7 @@ constexpr int kImeStatusGlyphSize = 10;
 constexpr int kImeClearGlyphSize = 12;
 constexpr int kImeIconSpacing = 0;
 constexpr int kImeStatusRightPadding = 4;
+constexpr int kResizeHandleWidth = 8;
 #ifdef _WIN32
 constexpr WPARAM kImeGetConversionMode = 0x0001;
 constexpr WPARAM kImeGetOpenStatus = 0x0005;
@@ -292,11 +296,34 @@ bool readBoolOptionVar(const char* optionVarName, bool defaultValue)
     return value != 0;
 }
 
+int readIntOptionVar(const char* optionVarName, int defaultValue)
+{
+    int exists = 0;
+    if (MGlobal::executeCommand(MString("optionVar -exists \"") + optionVarName + "\"", exists, false, false) != MS::kSuccess || exists == 0) {
+        return defaultValue;
+    }
+
+    int value = defaultValue;
+    if (MGlobal::executeCommand(MString("optionVar -q \"") + optionVarName + "\"", value, false, false) != MS::kSuccess) {
+        return defaultValue;
+    }
+
+    return value;
+}
+
 void writeBoolOptionVar(const char* optionVarName, bool value)
 {
     const QString command = QStringLiteral("optionVar -iv \"%1\" %2")
         .arg(QString::fromUtf8(optionVarName))
         .arg(value ? 1 : 0);
+    MGlobal::executeCommand(toMString(command), false, false);
+}
+
+void writeIntOptionVar(const char* optionVarName, int value)
+{
+    const QString command = QStringLiteral("optionVar -iv \"%1\" %2")
+        .arg(QString::fromUtf8(optionVarName))
+        .arg(value);
     MGlobal::executeCommand(toMString(command), false, false);
 }
 
@@ -381,6 +408,7 @@ void configureInputIconActionStyle(OneQtAction* action, qreal scale, const QVari
 OneLinerWindow::OneLinerWindow(QWidget* parent)
     : QWidget(parent, Qt::FramelessWindowHint | Qt::Tool)
     , _scale(1.0)
+    , _contentWidth(readIntOptionVar(kInputWidthOptionVar, kInputWidth))
     , _maxPreviewCount(19)
     , _previewEnabled(readBoolOptionVar(kPreviewEnabledOptionVar, true))
     , _autoCloseEnabled(readBoolOptionVar(kAutoCloseEnabledOptionVar, true))
@@ -394,6 +422,9 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     , _imeIsChinese(true)
     , _capsLockOn(false)
     , _dragging(false)
+    , _resizingWidth(false)
+    , _resizeStartGlobalX(0)
+    , _resizeStartWidth(0)
     , _rootLayout(new QVBoxLayout(this))
     , _lineEdit(new QLineEdit(this))
     , _imeStatusHost(new QWidget(_lineEdit))
@@ -401,7 +432,7 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     , _imeLanguageAction(new OneQtAction(_imeStatusHost))
     , _imeCapsAction(new OneQtAction(_imeStatusHost))
     , _imeStatusTimer(new QTimer(this))
-    , _previewList(new OneQtList(this, false))
+    , _previewList(new OneQtList(this, true))
 {
     setAttribute(Qt::WA_TranslucentBackground, true);
     setWindowFlag(Qt::WindowStaysOnTopHint, true);
@@ -419,7 +450,7 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     _lineEdit->setFrame(false);
     _lineEdit->setAttribute(Qt::WA_TranslucentBackground, true);
     _lineEdit->setContextMenuPolicy(Qt::CustomContextMenu);
-    _lineEdit->setPlaceholderText(QStringLiteral("请输入重命名规则，右击查看帮助；按住中间拖动以移动窗口"));
+    _lineEdit->setPlaceholderText(QStringLiteral("请输入重命名规则，右击查看更多；按住中间拖动以移动窗口"));
     _lineEdit->setStyleSheet(QStringLiteral(
         "QLineEdit {"
         " background: transparent;"
@@ -429,7 +460,7 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
         " selection-color: #ffffff;"
         "}"));
     _lineEdit->setToolTip(QStringLiteral("输入重命名规则；支持 Maya 通配符 * ?，以及 -h、-h -s、-type 等 flags。"));
-    _lineEdit->setStatusTip(QStringLiteral("输入规则后实时预览，回车执行；上下方向键可切换本次会话的输入历史。"));
+    _lineEdit->setStatusTip(QStringLiteral("输入规则后实时预览，回车执行；上下方向键可切换本次会话的输入历史；按住中间拖动以移动窗口"));
 
     _imeStatusHost->setAttribute(Qt::WA_TransparentForMouseEvents, false);
     _imeStatusHost->setAutoFillBackground(false);
@@ -468,7 +499,7 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     _previewList->setItemBackground(previewItemBackground);
 
     OneQtBackground previewHoverBackground;
-    previewHoverBackground.setBrush(OneQtBrush::fromColor(QColor(82, 133, 166, 42)));
+    previewHoverBackground.setBrush(OneQtBrush::fromColor(QColor(82, 133, 166, 64)));
     previewHoverBackground.setBorderBrush(OneQtBrush::fromColor(QColor(0, 0, 0, 0)));
     previewHoverBackground.setCornerRadius({kItemCornerRadius, kItemCornerRadius, kItemCornerRadius, kItemCornerRadius});
     _previewList->setItemHoverBackground(previewHoverBackground);
@@ -497,6 +528,45 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
             _lineEdit->setFocus();
             _lineEdit->selectAll();
         });
+    }
+
+    OneQtBackground transparentScrollTrack;
+    transparentScrollTrack.setBrush(OneQtBrush::fromColor(QColor(255, 255, 255, 0)));
+    transparentScrollTrack.setBorderBrush(OneQtBrush::fromColor(QColor(0, 0, 0, 0)));
+    transparentScrollTrack.setBorderWidth(0.0);
+    transparentScrollTrack.setCornerRadius(0.0);
+
+    OneQtBackground normalScrollThumb;
+    normalScrollThumb.setBrush(OneQtBrush::fromColor(QColor(255, 255, 255, 30)));
+    normalScrollThumb.setBorderBrush(OneQtBrush::fromColor(QColor(0, 0, 0, 0)));
+    normalScrollThumb.setBorderWidth(0.0);
+    normalScrollThumb.setCornerRadius(0.0);
+
+    OneQtBackground hoverScrollThumb;
+    hoverScrollThumb.setBrush(OneQtBrush::fromColor(QColor(255, 255, 255, 50)));
+    hoverScrollThumb.setBorderBrush(OneQtBrush::fromColor(QColor(0, 0, 0, 0)));
+    hoverScrollThumb.setBorderWidth(0.0);
+    hoverScrollThumb.setCornerRadius(0.0);
+
+    OneQtBackground pressedScrollThumb;
+    pressedScrollThumb.setBrush(OneQtBrush::fromColor(QColor(255, 255, 255, 80)));
+    pressedScrollThumb.setBorderBrush(OneQtBrush::fromColor(QColor(0, 0, 0, 0)));
+    pressedScrollThumb.setBorderWidth(0.0);
+    pressedScrollThumb.setCornerRadius(0.0);
+
+    if (OneQtScrollBar* verticalScrollBar = _previewList->verticalOneScrollBar()) {
+        verticalScrollBar->setTrackBackground(transparentScrollTrack);
+        verticalScrollBar->setThumbBackground(normalScrollThumb);
+        verticalScrollBar->setThumbHoverBackground(hoverScrollThumb);
+        verticalScrollBar->setThumbPressedBackground(pressedScrollThumb);
+        verticalScrollBar->setTrackMargins(QMargins(0, 0, 0, 0));
+    }
+    if (OneQtScrollBar* horizontalScrollBar = _previewList->horizontalOneScrollBar()) {
+        horizontalScrollBar->setTrackBackground(transparentScrollTrack);
+        horizontalScrollBar->setThumbBackground(normalScrollThumb);
+        horizontalScrollBar->setThumbHoverBackground(hoverScrollThumb);
+        horizontalScrollBar->setThumbPressedBackground(pressedScrollThumb);
+        horizontalScrollBar->setTrackMargins(QMargins(0, 0, 0, 0));
     }
 
     connect(_lineEdit, &QLineEdit::textChanged, this, [this]() {
@@ -626,21 +696,44 @@ bool OneLinerWindow::eventFilter(QObject* watched, QEvent* event)
             QWheelEvent* wheelEvent = static_cast<QWheelEvent*>(event);
             wheelEvent->accept();
             return true;
+        } else if (watched == _lineEdit && event->type() == QEvent::MouseMove && !_dragging && !_resizingWidth) {
+            QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+            updateResizeCursor(mouseEvent->pos());
         } else if (event->type() == QEvent::MouseButtonPress) {
             QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+            if (watched == _lineEdit && mouseEvent->button() == Qt::LeftButton && isInResizeHandle(mouseEvent->pos())) {
+                _resizingWidth = true;
+                _resizeStartGlobalX = mouseEvent->globalX();
+                _resizeStartWidth = _lineEdit->width();
+                _lineEdit->grabMouse();
+                _lineEdit->setCursor(Qt::SizeHorCursor);
+                return true;
+            }
             if (mouseEvent->button() == Qt::MiddleButton) {
                 _dragging = true;
                 _dragStart = mouseEvent->globalPos();
                 return true;
             }
+        } else if (event->type() == QEvent::MouseMove && _resizingWidth) {
+            QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+            setContentWidth(_resizeStartWidth + (mouseEvent->globalX() - _resizeStartGlobalX));
+            return true;
         } else if (event->type() == QEvent::MouseMove && _dragging) {
             QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
             const QPoint current = mouseEvent->globalPos();
             move(pos() + (current - _dragStart));
             _dragStart = current;
             return true;
+        } else if (watched == _lineEdit && event->type() == QEvent::Leave && !_resizingWidth) {
+            _lineEdit->setCursor(Qt::IBeamCursor);
         } else if (event->type() == QEvent::MouseButtonRelease) {
             QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+            if (_resizingWidth && mouseEvent->button() == Qt::LeftButton) {
+                _resizingWidth = false;
+                _lineEdit->releaseMouse();
+                updateResizeCursor(_lineEdit->mapFromGlobal(QCursor::pos()));
+                return true;
+            }
             if (mouseEvent->button() == Qt::MiddleButton) {
                 _dragging = false;
                 return true;
@@ -755,8 +848,8 @@ void OneLinerWindow::showToolsMenu()
     OneQtMenu* menu = new OneQtMenu(this);
     menu->setAttribute(Qt::WA_DeleteOnClose, true);
     menu->setScale(_scale);
-    menu->setMinimumWidth(kInputWidth);
-    menu->setMaximumWidth(kInputWidth);
+    menu->setMinimumWidth(qMax(kInputMinWidth, _contentWidth > 0 ? _contentWidth : kInputWidth));
+    menu->setMaximumWidth(qMax(kInputMinWidth, _contentWidth > 0 ? _contentWidth : kInputWidth));
     menu->setMargins(QMargins(qRound(3 * _scale), qRound(3 * _scale), qRound(3 * _scale), qRound(3 * _scale)));
     menu->setSpacing(qRound(kMenuSpacing * _scale));
     menu->setItemHeight(kMenuItemHeight);
@@ -913,7 +1006,13 @@ void OneLinerWindow::updateScaleFromMaya()
 
 void OneLinerWindow::updateLayoutMetrics()
 {
-    const int widthValue = qRound(kInputWidth * _scale);
+    const int defaultWidthValue = kInputWidth;
+    const int minWidthValue = kInputMinWidth;
+    if (_contentWidth <= 0) {
+        _contentWidth = defaultWidthValue;
+    }
+    const int logicalWidthValue = qMax(minWidthValue, _contentWidth);
+    const int widthValue = qRound(logicalWidthValue * _scale);
     const int lineHeight = qRound(kInputHeight * _scale);
     const int fontSize = qRound(kInputFontSize * _scale);
     const int imeIconSize = qRound(kImeIconSize * _scale);
@@ -973,6 +1072,14 @@ void OneLinerWindow::updateLayoutMetrics()
     _previewList->setItemHeight(kPreviewItemHeight);
     _previewList->setItemSpacing(kPreviewItemSpacing);
     _previewList->setItemPadding(QMargins(itemLeftPadding, 0, itemRightPadding, 0));
+    if (OneQtScrollBar* verticalScrollBar = _previewList->verticalOneScrollBar()) {
+        verticalScrollBar->setThickness(4);
+        verticalScrollBar->setMinThumbLength(qMax(18, qRound(20 * _scale)));
+    }
+    if (OneQtScrollBar* horizontalScrollBar = _previewList->horizontalOneScrollBar()) {
+        horizontalScrollBar->setThickness(4);
+        horizontalScrollBar->setMinThumbLength(qMax(18, qRound(20 * _scale)));
+    }
 
     applyWindowLayout(_previewList->isVisible() ? _previewList->height() : 0);
 }
@@ -1049,7 +1156,8 @@ void OneLinerWindow::toggleCapsLock()
 
 void OneLinerWindow::applyWindowLayout(int previewHeight)
 {
-    const int widthValue = qRound(kInputWidth * _scale);
+    const int logicalWidthValue = qMax(kInputMinWidth, _contentWidth > 0 ? _contentWidth : kInputWidth);
+    const int widthValue = qRound(logicalWidthValue * _scale);
     const int lineHeight = qRound(kInputHeight * _scale);
     const int gap = qRound(kPreviewGap * _scale);
     const int resolvedPreviewHeight = qMax(0, previewHeight);
@@ -1068,6 +1176,55 @@ void OneLinerWindow::applyWindowLayout(int previewHeight)
     if (resizing) {
         resize(widthValue, lineHeight + (resolvedPreviewHeight > 0 ? gap + resolvedPreviewHeight : 0));
     }
+
+    syncToolsMenuGeometry();
+}
+
+void OneLinerWindow::setContentWidth(int width)
+{
+    const int minWidthValue = kInputMinWidth;
+    const int nextWidth = qMax(minWidthValue, qRound(width / qMax<qreal>(0.1, _scale)));
+    if (_contentWidth == nextWidth) {
+        return;
+    }
+
+    _contentWidth = nextWidth;
+    writeIntOptionVar(kInputWidthOptionVar, _contentWidth);
+    updateLayoutMetrics();
+}
+
+void OneLinerWindow::syncToolsMenuGeometry()
+{
+    if (_toolsMenu == nullptr || _lineEdit == nullptr) {
+        return;
+    }
+
+    const int menuWidth = qMax(kInputMinWidth, _contentWidth > 0 ? _contentWidth : kInputWidth);
+    _toolsMenu->setMinimumWidth(menuWidth);
+    _toolsMenu->setMaximumWidth(menuWidth);
+    if (_toolsMenu->isVisible()) {
+        _toolsMenu->resize(qRound(menuWidth * _scale), _toolsMenu->height());
+        _toolsMenu->move(_lineEdit->mapToGlobal(QPoint(0, _lineEdit->height() + qRound(kPreviewGap * _scale))));
+    }
+}
+
+bool OneLinerWindow::isInResizeHandle(const QPoint& localPos) const
+{
+    if (_lineEdit == nullptr) {
+        return false;
+    }
+
+    const int handleWidth = qMax(6, qRound(kResizeHandleWidth * _scale));
+    return localPos.x() >= _lineEdit->width() - handleWidth;
+}
+
+void OneLinerWindow::updateResizeCursor(const QPoint& localPos)
+{
+    if (_lineEdit == nullptr) {
+        return;
+    }
+
+    _lineEdit->setCursor(isInResizeHandle(localPos) ? Qt::SizeHorCursor : Qt::IBeamCursor);
 }
 
 void OneLinerWindow::rebuildPreviewList(const QStringList& items, const QStringList& rawItems, bool selectionOnly)
@@ -1094,7 +1251,7 @@ void OneLinerWindow::rebuildPreviewList(const QStringList& items, const QStringL
         applyWindowLayout(0);
         _lineEdit->setPlaceholderText(selectionOnly
             ? QStringLiteral("未找到匹配对象；按住中间拖动以移动窗口")
-            : QStringLiteral("请选择对象，或使用通配符按名称选择或键入-type flag按类型选择；按住中间拖动以移动窗口"));
+            : QStringLiteral("请选择对象，右击查看更多"));
     } else {
         const int visibleItemCount = qMin(items.size(), kPreviewMaxVisibleItems);
         int actualItemHeight = itemHeight;
@@ -1151,7 +1308,7 @@ void OneLinerWindow::rebuildPreviewList(const QStringList& items, const QStringL
         }
 
         applyWindowLayout(previewHeight);
-        _lineEdit->setPlaceholderText(QStringLiteral("请输入重命名规则，右击查看帮助；按住中间拖动以移动窗口"));
+        _lineEdit->setPlaceholderText(QStringLiteral("请输入重命名规则，右击查看更多"));
     }
     update();
 }

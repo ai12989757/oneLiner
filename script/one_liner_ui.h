@@ -48,8 +48,13 @@ private:
     void rebuildPreviewList(const QStringList& items, const QStringList& rawItems, bool selectionOnly);
     void rememberHistory(const QString& text);
     bool stepHistory(int direction);
+    void setContentWidth(int width);
+    void syncToolsMenuGeometry();
+    bool isInResizeHandle(const QPoint& localPos) const;
+    void updateResizeCursor(const QPoint& localPos);
 
     qreal _scale;
+    int _contentWidth;
     int _maxPreviewCount;
     bool _previewEnabled;
     bool _autoCloseEnabled;
@@ -63,7 +68,10 @@ private:
     bool _imeIsChinese;
     bool _capsLockOn;
     bool _dragging;
+    bool _resizingWidth;
     QPoint _dragStart;
+    int _resizeStartGlobalX;
+    int _resizeStartWidth;
     QString _historyDraft;
     OneQtBackground _inputBackground;
     OneQtBackground _previewBackground;
