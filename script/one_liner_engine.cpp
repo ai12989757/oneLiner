@@ -277,6 +277,29 @@ void appendDescendants(const MDagPath& parentPath, QVector<OneLinerEngine::Renam
     }
 }
 
+QString targetTypeName(const OneLinerEngine::RenameTarget& target)
+{
+    MStatus status;
+    MFnDependencyNode dependencyNode(target.object, &status);
+    if (status != MS::kSuccess) {
+        return QString();
+    }
+    return toQString(dependencyNode.typeName());
+}
+
+QString targetParentPath(const OneLinerEngine::RenameTarget& target)
+{
+    if (!target.isDag) {
+        return QString();
+    }
+
+    const int splitIndex = target.path.lastIndexOf(QChar(u'|'));
+    if (splitIndex <= 0) {
+        return QString();
+    }
+    return target.path.left(splitIndex);
+}
+
 } // namespace
 
 OneLinerEngine::PreviewResult OneLinerEngine::preview(const QString& rule)
@@ -289,8 +312,22 @@ OneLinerEngine::PreviewResult OneLinerEngine::preview(const QString& rule, Scope
     const ParsedRule parsed = parseRule(rule, forcedMode, useForcedMode);
 
     PreviewResult result;
+    QVector<RenameTarget> previewTargets;
     result.selectionOnly = parsed.selectionOnly;
-    result.items = buildPreviewItems(parsed, nullptr, &result.rawItems);
+    result.items = buildPreviewItems(parsed, &previewTargets, &result.rawItems);
+    result.previewItems.reserve(result.items.size());
+    for (int index = 0; index < result.items.size(); ++index) {
+        const RenameTarget& target = previewTargets.value(index);
+        PreviewItem previewItem;
+        previewItem.displayText = result.items.at(index);
+        previewItem.rawText = result.rawItems.value(index, result.items.at(index));
+        previewItem.name = previewItem.rawText;
+        previewItem.typeName = targetTypeName(target);
+        previewItem.path = target.path;
+        previewItem.parentPath = targetParentPath(target);
+        previewItem.isDag = target.isDag;
+        result.previewItems.push_back(previewItem);
+    }
     return result;
 }
 

@@ -17,9 +17,20 @@ public:
         All,
     };
 
+    struct PreviewItem {
+        QString displayText;
+        QString rawText;
+        QString name;
+        QString typeName;
+        QString path;
+        QString parentPath;
+        bool isDag = false;
+    };
+
     struct PreviewResult {
         QStringList items;
         QStringList rawItems;
+        QVector<PreviewItem> previewItems;
         bool selectionOnly = false;
     };
 

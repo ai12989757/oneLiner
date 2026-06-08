@@ -12,8 +12,8 @@
 class QDialog;
 class QLineEdit;
 class OneQtAction;
-class OneQtList;
 class OneQtMenu;
+class OneLinerPreviewTree;
 class QTimer;
 class QVBoxLayout;
 
@@ -45,7 +45,7 @@ private:
     void toggleImeLanguage();
     void toggleCapsLock();
     void applyWindowLayout(int previewHeight);
-    void rebuildPreviewList(const QStringList& items, const QStringList& rawItems, bool selectionOnly);
+    void rebuildPreviewTree(const OneLinerEngine::PreviewResult& result);
     void rememberHistory(const QString& text);
     bool stepHistory(int direction);
     void setContentWidth(int width);
@@ -82,7 +82,7 @@ private:
     OneQtAction* _imeLanguageAction;
     OneQtAction* _imeCapsAction;
     QTimer* _imeStatusTimer;
-    OneQtList* _previewList;
+    OneLinerPreviewTree* _previewList;
     QPointer<OneQtMenu> _toolsMenu;
     QPointer<QDialog> _helpDialog;
 };

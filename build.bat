@@ -44,7 +44,7 @@ if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 
 set "CORE_DIR=%ONEQT_DIR%\Core"
 set "WIDGETS_DIR=%ONEQT_DIR%\Widgets"
-set "CPPFLAGS=/nologo /std:c++17 /utf-8 /EHsc /MD /W4 /Zc:__cplusplus /DWIN32 /D_WINDOWS /DUNICODE /D_UNICODE /DNT_PLUGIN /DQT_NO_KEYWORDS /DQT_DEPRECATED_WARNINGS /DONETWIDGETS_STATIC /I"%SOURCE_DIR%" /I"%CORE_DIR%" /I"%CORE_DIR%\OneAnimIcon" /I"%CORE_DIR%\OneBackground" /I"%CORE_DIR%\OneBrush" /I"%CORE_DIR%\OneFont" /I"%CORE_DIR%\OneIcon" /I"%CORE_DIR%\Internal" /I"%WIDGETS_DIR%" /I"%WIDGETS_DIR%\OneAction" /I"%WIDGETS_DIR%\OneList" /I"%WIDGETS_DIR%\OneMenu" /I"%WIDGETS_DIR%\OneScrollBar" /I"%WIDGETS_DIR%\OneSeparator" /I"%MAYA_INCLUDE%" /I"%QT_INCLUDE%" /I"%QT_INCLUDE%\QtCore" /I"%QT_INCLUDE%\QtGui" /I"%QT_INCLUDE%\QtWidgets" /I"%QT_SVG_INCLUDE%\QtSvg""
+set "CPPFLAGS=/nologo /std:c++17 /utf-8 /EHsc /MD /W4 /Zc:__cplusplus /DWIN32 /D_WINDOWS /DUNICODE /D_UNICODE /DNT_PLUGIN /DQT_NO_KEYWORDS /DQT_DEPRECATED_WARNINGS /DONETWIDGETS_STATIC /I"%SOURCE_DIR%" /I"%CORE_DIR%" /I"%CORE_DIR%\OneAnimIcon" /I"%CORE_DIR%\OneBackground" /I"%CORE_DIR%\OneBrush" /I"%CORE_DIR%\OneFont" /I"%CORE_DIR%\OneIcon" /I"%CORE_DIR%\Internal" /I"%WIDGETS_DIR%" /I"%WIDGETS_DIR%\OneAction" /I"%WIDGETS_DIR%\OneList" /I"%WIDGETS_DIR%\OneMenu" /I"%WIDGETS_DIR%\OneScrollBar" /I"%WIDGETS_DIR%\OneSeparator" /I"%WIDGETS_DIR%\OneTree" /I"%MAYA_INCLUDE%" /I"%QT_INCLUDE%" /I"%QT_INCLUDE%\QtCore" /I"%QT_INCLUDE%\QtGui" /I"%QT_INCLUDE%\QtWidgets" /I"%QT_SVG_INCLUDE%\QtSvg""
 set "LDFLAGS=/NOLOGO /DLL /INCREMENTAL:NO /MACHINE:X64 /LIBPATH:"%MAYA_LIB%" /LIBPATH:"%QT_LIB%" Foundation.lib OpenMaya.lib OpenMayaUI.lib Qt5Core.lib Qt5Gui.lib Qt5Widgets.lib Qt5Svg.lib user32.lib gdi32.lib shell32.lib advapi32.lib imm32.lib"
 
 pushd "%BUILD_DIR%"
@@ -64,8 +64,13 @@ cl %CPPFLAGS% /c ^
     "%WIDGETS_DIR%\OneList\one_list.cpp" ^
     "%WIDGETS_DIR%\OneMenu\one_menu.cpp" ^
     "%WIDGETS_DIR%\OneScrollBar\one_scroll_bar.cpp" ^
+    "%WIDGETS_DIR%\OneTree\one_tree.cpp" ^
+    "%WIDGETS_DIR%\OneTree\one_tree_header_view.cpp" ^
+    "%WIDGETS_DIR%\OneTree\internal\one_tree_maya_style.cpp" ^
     "%SOURCE_DIR%\one_liner_engine.cpp" ^
     "%SOURCE_DIR%\one_liner_help.cpp" ^
+    "%SOURCE_DIR%\one_liner_preview.cpp" ^
+    "%SOURCE_DIR%\one_liner_tools_menu.cpp" ^
     "%SOURCE_DIR%\one_liner_ui.cpp" ^
     "%SOURCE_DIR%\one_liner_plugin.cpp"
 if errorlevel 1 (
@@ -87,8 +92,13 @@ link %LDFLAGS% /OUT:"%TEMP_MLL%" ^
     one_list.obj ^
     one_menu.obj ^
     one_scroll_bar.obj ^
+    one_tree.obj ^
+    one_tree_header_view.obj ^
+    one_tree_maya_style.obj ^
     one_liner_engine.obj ^
     one_liner_help.obj ^
+    one_liner_preview.obj ^
+    one_liner_tools_menu.obj ^
     one_liner_ui.obj ^
     one_liner_plugin.obj
 if errorlevel 1 (
