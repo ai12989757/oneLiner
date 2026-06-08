@@ -69,6 +69,7 @@ QString normalizeRuleInput(QString rule)
     rule.replace(QChar(u'＠'), QChar(u'@'));
     rule.replace(QChar(u'＊'), QChar(u'*'));
     rule.replace(QChar(u'＞'), QChar(u'>'));
+    rule.replace(QChar(u'／'), QChar(u'/'));
     rule.replace(QChar(u'，'), QChar(u','));
     rule.replace(QChar(u'　'), QChar(u' '));
     return rule;
@@ -79,32 +80,132 @@ QStringList splitReplacementTerms(const QString& text)
     return text.split(QRegularExpression(QStringLiteral("[\\s,，]+")), Qt::SkipEmptyParts);
 }
 
+QString indexToLettersWithCase(int index, bool lowerCase)
+{
+    QString result;
+    int value = qMax(0, index);
+    const ushort base = lowerCase ? QChar(u'a').unicode() : QChar(u'A').unicode();
+    do {
+        const int remainder = value % 26;
+        result.prepend(QChar(base + remainder));
+        value = value / 26 - 1;
+    } while (value >= 0);
+    return result;
+}
+
+int lettersToIndex(const QString& letters)
+{
+    int value = 0;
+    for (const QChar ch : letters) {
+        value = value * 26 + (ch.toUpper().unicode() - QChar(u'A').unicode());
+    }
+    return qMax(0, value);
+}
+
+QString fixedWidthLetters(int index, const QString& pattern)
+{
+    if (pattern.isEmpty()) {
+        return indexToLetters(index);
+    }
+
+    QString result(pattern.size(), QChar(u'A'));
+    int value = qMax(0, index);
+    for (int charIndex = pattern.size() - 1; charIndex >= 0; --charIndex) {
+        const int remainder = value % 26;
+        const bool lowerCase = pattern.at(charIndex).isLower();
+        result[charIndex] = QChar((lowerCase ? QChar(u'a') : QChar(u'A')).unicode() + remainder);
+        value /= 26;
+    }
+    return result;
+}
+
+QString applySequencePatterns(QString text, int index)
+{
+    QString resolvedText;
+    resolvedText.reserve(text.size() + 8);
+
+    for (int cursor = 0; cursor < text.size();) {
+        const QChar current = text.at(cursor);
+        if (current == QChar(u'#')) {
+            int markerEnd = cursor;
+            while (markerEnd < text.size() && text.at(markerEnd) == QChar(u'#')) {
+                ++markerEnd;
+            }
+
+            int startValue = 1;
+            int consumeEnd = markerEnd;
+            if (markerEnd < text.size() && (text.at(markerEnd) == QChar(u'/') || text.at(markerEnd) == QChar(u'\\'))) {
+                int digitEnd = markerEnd + 1;
+                while (digitEnd < text.size() && text.at(digitEnd).isDigit()) {
+                    ++digitEnd;
+                }
+                if (digitEnd > markerEnd + 1) {
+                    startValue = text.mid(markerEnd + 1, digitEnd - markerEnd - 1).toInt();
+                    consumeEnd = digitEnd;
+                } else {
+                    consumeEnd = markerEnd + 1;
+                }
+            }
+
+            const int padding = markerEnd - cursor;
+            const int number = index + startValue;
+            resolvedText += QStringLiteral("%1").arg(number, padding, 10, QChar(u'0'));
+            cursor = consumeEnd;
+            continue;
+        }
+
+        if (current == QChar(u'@')) {
+            int markerEnd = cursor;
+            while (markerEnd < text.size() && text.at(markerEnd) == QChar(u'@')) {
+                ++markerEnd;
+            }
+
+            const int markerCount = markerEnd - cursor;
+            QString startPattern(markerCount, QChar(u'A'));
+            int consumeEnd = markerEnd;
+            if (markerEnd < text.size() && (text.at(markerEnd) == QChar(u'/') || text.at(markerEnd) == QChar(u'\\'))) {
+                const int patternStart = markerEnd + 1;
+                const int patternEnd = patternStart + markerCount;
+                bool validPattern = patternEnd <= text.size();
+                if (validPattern) {
+                    for (int charIndex = patternStart; charIndex < patternEnd; ++charIndex) {
+                        if (!text.at(charIndex).isLetter()) {
+                            validPattern = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (validPattern) {
+                    startPattern = text.mid(patternStart, markerCount);
+                    consumeEnd = patternEnd;
+                } else {
+                    consumeEnd = markerEnd + 1;
+                }
+            }
+
+            if (markerCount == 1) {
+                const bool lowerCase = startPattern.front().isLower();
+                const int startIndex = qMax(0, startPattern.front().toUpper().unicode() - QChar(u'A').unicode());
+                resolvedText += indexToLettersWithCase(startIndex + index, lowerCase);
+            } else {
+                const int startIndex = lettersToIndex(startPattern);
+                resolvedText += fixedWidthLetters(startIndex + index, startPattern);
+            }
+            cursor = consumeEnd;
+            continue;
+        }
+
+        resolvedText += current;
+        ++cursor;
+    }
+
+    return resolvedText;
+}
+
 QString applyReplacementPattern(QString text, int index)
 {
-    int start = 1;
-    const int startMarker = text.indexOf(QStringLiteral("//"));
-    if (startMarker >= 0) {
-        bool ok = false;
-        const int parsedStart = text.mid(startMarker + 2).toInt(&ok);
-        if (ok) {
-            start = parsedStart;
-        }
-        text = text.left(startMarker);
-    }
-
-    const int number = index + start;
-    if (text.contains(QChar(u'#'))) {
-        const int padding = text.count(QChar(u'#'));
-        const QString token(padding, QChar(u'#'));
-        text.replace(token, QStringLiteral("%1").arg(number, padding, 10, QChar(u'0')));
-    }
-
-    if (text.contains(QChar(u'@'))) {
-        const int padding = text.count(QChar(u'@'));
-        const QString token(padding, QChar(u'@'));
-        text.replace(token, indexToLetters(index));
-    }
-    return text;
+    return applySequencePatterns(text, index);
 }
 
 QVector<QPair<QString, QString>> replacementPairsForRule(const QString& rule, int index)
@@ -1046,30 +1147,7 @@ QStringList OneLinerEngine::formatPreviewItems(const QVector<RenameTarget>& targ
 
 QString OneLinerEngine::applyNumberPattern(QString text, int index)
 {
-    int start = 1;
-    const int startMarker = text.indexOf(QStringLiteral("//"));
-    if (startMarker >= 0) {
-        bool ok = false;
-        const int parsedStart = text.mid(startMarker + 2).toInt(&ok);
-        if (ok) {
-            start = parsedStart;
-        }
-        text = text.left(startMarker);
-    }
-
-    const int number = index + start;
-    if (text.contains(QChar(u'#'))) {
-        const int padding = text.count(QChar(u'#'));
-        const QString token(padding, QChar(u'#'));
-        text.replace(token, QStringLiteral("%1").arg(number, padding, 10, QChar(u'0')));
-    }
-
-    if (text.contains(QChar(u'@'))) {
-        const int padding = text.count(QChar(u'@'));
-        const QString token(padding, QChar(u'@'));
-        text.replace(token, indexToLetters(index));
-    }
-    return text;
+    return applySequencePatterns(text, index);
 }
 
 QString OneLinerEngine::uniqueNameWithDigits(QString name)

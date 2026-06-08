@@ -1,104 +1,171 @@
 # OneLiner
 
-Simple Renamer Tool for Maya
+OneLiner is a lightweight renaming plugin for Maya. The UI stays intentionally minimal, but the current version includes live tree preview, batch replacement, wildcard selection, hierarchy/type filters, and a small tools menu for common actions.
 
-## English|[简体中文](README_zh.md)
+## English | [简体中文](README_zh.md)
 
 ## UI
 
 ![image.png](images/10.png)
 
-## ENV
+## Requirements
 
-- windows
-- maya2017+
+- Windows
+- Maya 2017+
 
-## To be optimized
+## Current Features
 
-- [x] fix listView szie
-- [x] support maya auto rename preview
-- [x] ~~add gif tips~~
-- [x] Set hotkeys in the pop-up window during installation
+- Single-line rename workflow with instant execution on Enter
+- Live preview panel with tree structure for hierarchy mode
+- Stable preview for duplicated Maya names
+- Old-name reuse, numeric tokens, alphabetic tokens
+- Trim, replace, and ordered multi-replace rules
+- Wildcard-based selection mode using Maya native matching
+- `-h`, `-s`, and `-type` filters
+- Right-click tools for preview toggle, auto-close, wildcard shape inclusion, `pasted__` cleanup, and help
+- Full-width punctuation normalization for common rule characters when switching input methods
 
-## Tutorials
+## Installation
 
-### Installation
+### Standard Install
 
-- Download and unzip the oneLiner.zip
-- Drag and drop the "studiolibrary/install.mel" file onto the Maya viewport
-- in the pop-up window, set the hotkeys and click "OK" to finish the installation
+1. Keep the repository path simple if possible.
+2. If the plugin binary has not been built yet, run `build.bat` in the repository root first.
+3. Drag `install.mel` into the Maya viewport.
+4. The installer loads `bin/<maya version>/oneLiner.mll` and registers image/icon search paths automatically.
+
 ![11.gif](images/11.gif)
 
-### Details
+### Build From Source
 
-#### Simple
+Run this in the repository root:
 
-- select object run the script,Enter text
+```bat
+build.bat
+```
+
+The compiled plugin is written to `bin/<MayaVersion>/oneLiner.mll`.
+
+## Usage
+
+### Basic Flow
+
+1. Select objects in Maya.
+2. Open OneLiner.
+3. Type a rule in the input field.
+4. Review the live preview.
+5. Press Enter to execute.
 
 ![01.gif](images/01.gif)
 
-##### > Find and replace
+### Rule Quick Reference
 
-- "oldName">"newName" (without quotes)
+#### `!` `#` `@`
 
-![03.gif](images/03.gif)
+- **`!`**: reuse the original object name, e.g. `side_!` → `side_box` (keeps part of the old name).
+- **`#`**: numeric sequence. Use multiple `#` for zero-padding: `ctrl_##` → `01, 02, ...`.
+  - Set a numeric start by appending `/N` after the rule: `ctrl_##/3` → `03, 04, ...`. `\` is also supported, e.g. `ctrl_##\3`.
+- **`@`**: alphabetic sequence. Two modes:
+  - **Single `@` (expandable carry):** `@` produces `A, B, ..., Z, AA, AB, ...` (carry increments leftward).
+  - **Multiple `@` (fixed-width):** `@@` / `@@@` reserve exactly that many letters. `@@` produces `AA, AB, ..., AZ, BA, ...`.
+  - Provide an optional start template after a `/` to control starting letters and case: `@@/Aa` starts at `Aa` and preserves case per template (`A` = upper, `a` = lower). If omitted, fixed-width starts from `A...A`. `\` is also supported, e.g. `@@\Aa`.
 
-##### USE ! # @
+Notes:
 
-- **!** old name
+- Full-width punctuation commonly produced by IMEs (e.g. `！ ？ ＃ ＠ ＊`) are normalized to their ASCII counterparts, so rules still work when typing in different input modes.
+- If a start template is malformed, the engine falls back to treating the marker as a literal character rather than producing unexpected prefixes.
 
 ![02.gif](images/02.gif)
-
-- **#** numbering based on selection, add more # for more digits
-
-![01.gif](images/01.gif)
-
-- **@** alphabetical numbering based on selection
-
+![03.gif](images/03.gif)
 ![04.gif](images/04.gif)
 
-##### /s /h selected/hierarchy
+#### Replace Rules
 
-- **/s** selected only (this is default, you dont have to type this)
-- **/h** add items from all hierarchy descendants of selected items
+- `old>new`: single replacement pair
+- `Mesh A>Joint B`: ordered multi-replace
+- `Mesh,A>Joint,B`: comma-separated multi-replace
+- `Mesh，A>Joint，B`: Chinese comma is also supported
 
-![05.gif](images/05.gif)
+Examples:
 
-##### + - -- remove first or last character(s)
+- `L_>R_`
+- `Mesh A>Joint B`
+- `Ctrl,FK>Drv,IK`
 
-- **+num** +(amount of characters to remove) = removes specific amounts of characters from first character
-- **-num** -(amount of characters to remove) = removes specific amounts of characters from last character
-- **--num** Delete to leave only
+#### Trim Rules
+
+- `+number`: remove characters from the beginning
+- `-number`: remove characters from the end
+- `--number`: keep only the first N characters
+
+Examples:
+
+- `+3`
+- `-2`
+- `--6`
 
 ![06.gif](images/06.gif)
 
-##### f: fs: fe: Additional tool
+#### Hierarchy and Type Filters
 
-- **f: xxx** at the start of the text to find objects within desired characters
-- **fs: xxx** at the start of the text to find objects that ends with the desired characters
-- **fe: xxx** at the start of the text to find objects the starts with the desired scharacters
+- `-h`: include selected objects and all descendants
+- `-h -s`: include shapes in hierarchy mode
+- `-type joint blendShape`: filter by Maya node type
 
-![07.gif](images/07.gif)
+Notes:
 
-##### Right click Show Tips
+- Selected mode is the default
+- If `-type` finds nothing in the current candidate set, the engine falls back to a global type lookup
 
-![08.gif](images/08.png)
+![05.gif](images/05.gif)
 
-## Thanks
+#### Wildcard Selection
 
-- **Original Author:**
+- Typing `*` or `?` switches to Maya native wildcard selection
+- Pressing Enter updates selection instead of renaming
+- The “include shape” toggle in the tools menu only affects wildcard matching
 
-    Fauzan Syabana
+Examples:
 
-    zansyabana@gmail.com
+- `ctrl_*`
+- `L_arm_??`
 
-    rename code for Fauzan Syabana
+#### Preview and Input History
 
-- **oneLiner:**
+- The preview updates as you type
+- Hierarchy candidates are shown in a tree with node icons
+- Double-clicking a preview item writes its raw text back into the input field
+- Up and Down arrow keys browse rule history for the current Maya session
 
-    [https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya](<https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya>)
+## Right-Click Menu
 
-    ![09.png](images/09.png)
+The input field opens a tools menu on right click. Current entries are:
+
+- Enable Preview
+- Auto Close
+- Include Shape Objects In Wildcard Search
+- Clear `pasted__` Prefix
+- Help
+
+![08.png](images/08.png)
+
+## Repository Layout
+
+- `script/`: Maya plugin logic and UI
+- `OneQtC++/`: OneQt widgets and tests used by the plugin
+- `images/`: README assets, help gifs, and icons
+- `install.mel`: Maya installation entry point
+- `build.bat`: root build script
+
+## Credits
+
+- Original Author: Fauzan Syabana
+- Email: zansyabana@gmail.com
+- Original page: <https://www.highend3d.com/maya/script/oneliner-simple-renamer-tool-for-maya>
+
+The original renaming idea comes from the original oneLiner script. This version extends it with a compiled Maya plugin, refreshed UI, tree preview, and expanded rule handling.
+
+![09.png](images/09.png)
 
 ## License
 
