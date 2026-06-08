@@ -18,6 +18,8 @@ namespace {
 
 constexpr const char* kWildcardIncludeShapesOptionVar = "oneLinerWildcardIncludeShapes";
 
+QString indexToLetters(int index);
+
 MString toMString(const QString& value)
 {
     return MString(value.toUtf8().constData());
@@ -57,6 +59,97 @@ bool wildcardHasSearchText(const QString& pattern)
     candidate.remove(QChar(u'*'));
     candidate.remove(QChar(u'?'));
     return !candidate.trimmed().isEmpty();
+}
+
+QString normalizeRuleInput(QString rule)
+{
+    rule.replace(QChar(u'！'), QChar(u'!'));
+    rule.replace(QChar(u'？'), QChar(u'?'));
+    rule.replace(QChar(u'＃'), QChar(u'#'));
+    rule.replace(QChar(u'＠'), QChar(u'@'));
+    rule.replace(QChar(u'＊'), QChar(u'*'));
+    rule.replace(QChar(u'＞'), QChar(u'>'));
+    rule.replace(QChar(u'，'), QChar(u','));
+    rule.replace(QChar(u'　'), QChar(u' '));
+    return rule;
+}
+
+QStringList splitReplacementTerms(const QString& text)
+{
+    return text.split(QRegularExpression(QStringLiteral("[\\s,，]+")), Qt::SkipEmptyParts);
+}
+
+QString applyReplacementPattern(QString text, int index)
+{
+    int start = 1;
+    const int startMarker = text.indexOf(QStringLiteral("//"));
+    if (startMarker >= 0) {
+        bool ok = false;
+        const int parsedStart = text.mid(startMarker + 2).toInt(&ok);
+        if (ok) {
+            start = parsedStart;
+        }
+        text = text.left(startMarker);
+    }
+
+    const int number = index + start;
+    if (text.contains(QChar(u'#'))) {
+        const int padding = text.count(QChar(u'#'));
+        const QString token(padding, QChar(u'#'));
+        text.replace(token, QStringLiteral("%1").arg(number, padding, 10, QChar(u'0')));
+    }
+
+    if (text.contains(QChar(u'@'))) {
+        const int padding = text.count(QChar(u'@'));
+        const QString token(padding, QChar(u'@'));
+        text.replace(token, indexToLetters(index));
+    }
+    return text;
+}
+
+QVector<QPair<QString, QString>> replacementPairsForRule(const QString& rule, int index)
+{
+    QVector<QPair<QString, QString>> pairs;
+    const QString normalizedRule = normalizeRuleInput(rule).trimmed();
+    if (!normalizedRule.contains(QChar(u'>'))) {
+        return pairs;
+    }
+
+    const QStringList tokens = splitReplacementTerms(normalizedRule);
+    bool allTokensArePairs = !tokens.isEmpty();
+    for (const QString& token : tokens) {
+        if (!token.contains(QChar(u'>'))) {
+            allTokensArePairs = false;
+            break;
+        }
+    }
+
+    if (allTokensArePairs) {
+        pairs.reserve(tokens.size());
+        for (const QString& token : tokens) {
+            const int splitIndex = token.indexOf(QChar(u'>'));
+            const QString oldWord = token.left(splitIndex).trimmed();
+            const QString newWord = applyReplacementPattern(token.mid(splitIndex + 1).trimmed(), index);
+            if (!oldWord.isEmpty()) {
+                pairs.push_back(qMakePair(oldWord, newWord));
+            }
+        }
+        return pairs;
+    }
+
+    const int splitIndex = normalizedRule.indexOf(QChar(u'>'));
+    const QStringList oldWords = splitReplacementTerms(normalizedRule.left(splitIndex));
+    const QStringList newWords = splitReplacementTerms(normalizedRule.mid(splitIndex + 1));
+    const int pairCount = qMin(oldWords.size(), newWords.size());
+    pairs.reserve(pairCount);
+    for (int pairIndex = 0; pairIndex < pairCount; ++pairIndex) {
+        const QString oldWord = oldWords[pairIndex].trimmed();
+        const QString newWord = applyReplacementPattern(newWords[pairIndex].trimmed(), index);
+        if (!oldWord.isEmpty()) {
+            pairs.push_back(qMakePair(oldWord, newWord));
+        }
+    }
+    return pairs;
 }
 
 bool isNumericTrimRule(const QString& rule)
@@ -499,7 +592,7 @@ OneLinerEngine::ParsedRule OneLinerEngine::parseRule(const QString& rule, ScopeM
 {
     ParsedRule parsed;
     parsed.originalRule = rule;
-    parsed.rawRule = rule.trimmed();
+    parsed.rawRule = normalizeRuleInput(rule).trimmed();
     parsed.cleanRule = parsed.rawRule;
 
     if (isFlagsRule(parsed.rawRule) && !isNumericTrimRule(parsed.rawRule)) {
@@ -852,11 +945,15 @@ QStringList OneLinerEngine::buildRenamedItems(const ParsedRule& parsed, QVector<
         QString nextName;
 
         if (parsed.cleanRule.contains(QChar(u'>'))) {
-            const QStringList words = parsed.cleanRule.split(QChar(u'>'));
-            const QString oldWord = words.value(0);
-            const QString newWord = applyNumberPattern(words.value(1), index);
             nextName = currentName;
-            nextName.replace(oldWord, newWord, Qt::CaseSensitive);
+            const QVector<QPair<QString, QString>> replacementPairs = replacementPairsForRule(parsed.cleanRule, index);
+            if (replacementPairs.isEmpty()) {
+                renamedItems.push_back(currentName);
+                continue;
+            }
+            for (const auto& replacementPair : replacementPairs) {
+                nextName.replace(replacementPair.first, replacementPair.second, Qt::CaseSensitive);
+            }
         } else if (parsed.cleanRule.startsWith(QChar(u'-'))) {
             if (parsed.cleanRule == QStringLiteral("-") || parsed.cleanRule == QStringLiteral("--")) {
                 nextName = currentName;

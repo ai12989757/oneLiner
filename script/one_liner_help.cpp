@@ -72,7 +72,7 @@ QVector<HelpSectionData> helpSections()
         {
             QStringLiteral("<span style='color:#ffd27a;'>! # @ 符号</span>"),
             {
-                { imagePath(QStringLiteral("02.gif")), QStringLiteral("[!] 复用旧名称，例如 side_!。") },
+                { imagePath(QStringLiteral("02.gif")), QStringLiteral("[!] 复用旧名称，例如 side_!；也支持中文输入法的全角感叹号和问号。") },
                 { imagePath(QStringLiteral("03.gif")), QStringLiteral("[#] 生成数字序号，可配合 // 指定起始值，例如 ctrl_##//3。") },
                 { imagePath(QStringLiteral("04.gif")), QStringLiteral("[@] 生成字母序号，按当前候选顺序递增。") },
             }
@@ -90,12 +90,13 @@ QVector<HelpSectionData> helpSections()
             {
                 { imagePath(QStringLiteral("06.gif")), QStringLiteral("[+数字] 从前往后删字符；[-数字] 从后往前删字符；[--数字] 保留前 N 个字符。") },
                 { QString(), QStringLiteral("[old>new] 对候选名字执行局部替换。") },
+                { QString(), QStringLiteral("[Mesh A>Joint B] 可按顺序批量替换多个词；左右两侧也支持用英文逗号或中文逗号分隔。") },
             }
         },
         {
             QStringLiteral("<span style='color:#c7b3ff;'>* ? 通配符选择</span>"),
             {
-                { QString(), QStringLiteral("直接输入 * 和 ? 使用 Maya 原生通配符匹配，回车会直接选中匹配对象。") },
+                { QString(), QStringLiteral("直接输入 * 和 ? 使用 Maya 原生通配符匹配，回车会直接选中匹配对象；也支持中文输入法的全角问号。") },
                 { QString(), QStringLiteral("右键菜单中的 [检索Shape对象] 只影响通配符结果，不影响 -type。") },
             }
         },

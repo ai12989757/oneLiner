@@ -1,11 +1,13 @@
 #include "one_liner_preview.h"
 
 #include "one_scroll_bar.h"
+#include "one_background.h"
 #include "oneqt_brush.h"
 
 #include <QAbstractItemView>
 #include <QFont>
 #include <QFontMetrics>
+#include <QGridLayout>
 #include <QHash>
 #include <QHeaderView>
 #include <QIcon>
@@ -23,6 +25,7 @@ constexpr int kPreviewItemHeight = 22;
 constexpr int kPreviewMaxVisibleItems = 10;
 constexpr int kPreviewIconSourceSize = 64;
 constexpr qreal kPreviewIconHeightRatio = 0.8;
+constexpr int kPreviewOuterMargin = 5;
 
 QFont previewFont(qreal scale)
 {
@@ -221,15 +224,37 @@ void applyPreviewTreeItemStyle(QTreeWidget* treeWidget)
 } // namespace
 
 OneLinerPreviewTree::OneLinerPreviewTree(QWidget* parent)
-    : OneQtTree(parent)
+    : QWidget(parent)
+    , _tree(new OneQtTree(this))
+    , _background(this)
+    , _scale(1.0)
     , _previewHeight(0)
     , _itemCount(0)
     , _scrollEnabled(false)
 {
+    setAttribute(Qt::WA_TranslucentBackground, true);
+    setAutoFillBackground(false);
     setFocusPolicy(Qt::NoFocus);
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     setToolTip(QStringLiteral("预览列表。双击任意项可将其文本写回输入框。"));
     setStatusTip(QStringLiteral("双击预览项可快速把该文本填入输入框。"));
+
+    _background.setBrush(OneQtBrush::fromColor(QColor(18, 22, 29, 176)));
+    _background.setBorderBrush(OneQtBrush::fromColor(QColor(0, 0, 0, 0)));
+    _background.setBorderWidth(0.0);
+    _background.setCornerRadius(6.0);
+
+    QGridLayout* rootLayout = new QGridLayout(this);
+    rootLayout->setContentsMargins(0, 0, 0, 0);
+    rootLayout->setSpacing(0);
+    rootLayout->addWidget(_tree, 0, 0);
+
+    OneQtBackground transparentTreeBackground;
+    transparentTreeBackground.setBrush(OneQtBrush::fromColor(QColor(0, 0, 0, 0)));
+    transparentTreeBackground.setBorderBrush(OneQtBrush::fromColor(QColor(0, 0, 0, 0)));
+    transparentTreeBackground.setBorderWidth(0.0);
+    transparentTreeBackground.setCornerRadius(0.0);
+    _tree->setPanelBackground(transparentTreeBackground);
 
     QTreeWidget* nativeTree = treeWidget();
     nativeTree->setColumnCount(1);
@@ -253,24 +278,31 @@ OneLinerPreviewTree::OneLinerPreviewTree(QWidget* parent)
         _itemActivatedHandler(item->data(0, Qt::UserRole).toString());
     });
 
-    applyPreviewScrollBarStyle(verticalOneScrollBar());
-    applyPreviewScrollBarStyle(horizontalOneScrollBar());
+    applyPreviewScrollBarStyle(_tree->verticalOneScrollBar());
+    applyPreviewScrollBarStyle(_tree->horizontalOneScrollBar());
 }
 
 void OneLinerPreviewTree::applyScale(qreal scale)
 {
+    _scale = qMax<qreal>(0.1, scale);
     QTreeWidget* nativeTree = treeWidget();
     applyPreviewTreeItemStyle(nativeTree);
     const QFont treeFont = previewFont(scale);
     nativeTree->setFont(treeFont);
-    nativeTree->setProperty("oneqtTreeStructureLeftMargin", qRound(3 * scale));
+    nativeTree->setProperty("oneqtTreeStructureLeftMargin", qRound(4 * scale));
     nativeTree->setProperty("oneqtTreeIndicatorExtent", qRound(10 * scale));
     nativeTree->setProperty("oneqtTreeLeafDotDiameter", qRound(5 * scale));
     nativeTree->setProperty("oneqtTreeMarkerItemGap", qRound(3 * scale));
     nativeTree->setProperty("oneqtTreeRowCornerRadius", qMax(2, qRound(4 * scale)));
     nativeTree->setProperty("oneqtTreeDisableSelectionState", true);
 
-    OneQtTree::setScale(scale);
+    if (QLayout* rootLayout = layout()) {
+        const int outerMargin = qRound(kPreviewOuterMargin * scale);
+        rootLayout->setContentsMargins(outerMargin, outerMargin, outerMargin, outerMargin);
+    }
+
+    _background.setScale(scale);
+    _tree->setScale(scale);
     applyPreviewTreeItemStyle(nativeTree);
     nativeTree->clearSelection();
     nativeTree->setCurrentItem(nullptr);
@@ -280,11 +312,11 @@ void OneLinerPreviewTree::applyScale(qreal scale)
     }
     nativeTree->viewport()->update();
 
-    if (OneQtScrollBar* verticalScrollBar = verticalOneScrollBar()) {
+    if (OneQtScrollBar* verticalScrollBar = _tree->verticalOneScrollBar()) {
         verticalScrollBar->setThickness(4);
         verticalScrollBar->setMinThumbLength(qMax(18, qRound(20 * scale)));
     }
-    if (OneQtScrollBar* horizontalScrollBar = horizontalOneScrollBar()) {
+    if (OneQtScrollBar* horizontalScrollBar = _tree->horizontalOneScrollBar()) {
         horizontalScrollBar->setThickness(4);
         horizontalScrollBar->setMinThumbLength(qMax(18, qRound(20 * scale)));
     }
@@ -302,7 +334,7 @@ void OneLinerPreviewTree::applyScale(qreal scale)
 void OneLinerPreviewTree::rebuildPreview(const OneLinerEngine::PreviewResult& result)
 {
     QTreeWidget* nativeTree = treeWidget();
-    clearItems();
+    _tree->clearItems();
 
     _itemCount = result.previewItems.size();
     _scrollEnabled = _itemCount > kPreviewMaxVisibleItems;
@@ -331,15 +363,15 @@ void OneLinerPreviewTree::rebuildPreview(const OneLinerEngine::PreviewResult& re
             continue;
         }
 
-        const int rowHeight = qMax(22, qRound(kPreviewItemHeight * scale()));
+        const int rowHeight = qMax(22, qRound(kPreviewItemHeight * _scale));
         item->setSizeHint(0, QSize(0, rowHeight));
 
         PreviewNameItemWidget* nameWidget = new PreviewNameItemWidget(
             mayaNodePixmap(previewItem.iconTypeName),
             previewItem.name,
-            scale(),
+            _scale,
             nativeTree);
-        nameWidget->setFont(previewFont(scale()));
+        nameWidget->setFont(previewFont(_scale));
         nameWidget->setMinimumHeight(rowHeight);
         nativeTree->setItemWidget(item, 0, nameWidget);
     }
@@ -365,6 +397,22 @@ void OneLinerPreviewTree::rebuildPreview(const OneLinerEngine::PreviewResult& re
 int OneLinerPreviewTree::previewHeight() const
 {
     return _previewHeight;
+}
+
+void OneLinerPreviewTree::setPanelBackground(const OneQtBackground& background)
+{
+    _background.setBrush(background.brush());
+    _background.setPadding(background.padding());
+    _background.setCornerRadius(background.cornerRadius());
+    _background.setBorderBrush(background.borderBrush());
+    _background.setBorderWidth(background.borderWidth());
+    _background.setScale(_scale);
+    update();
+}
+
+QTreeWidget* OneLinerPreviewTree::treeWidget() const
+{
+    return _tree != nullptr ? _tree->treeWidget() : nullptr;
 }
 
 bool OneLinerPreviewTree::hasItems() const
@@ -404,6 +452,19 @@ int OneLinerPreviewTree::resolvedRowHeight() const
 {
     const QTreeWidget* nativeTree = treeWidget();
     const int hintedHeight = nativeTree->topLevelItemCount() > 0 ? nativeTree->sizeHintForRow(0) : 0;
-    const int fallbackHeight = qRound(kPreviewItemHeight * scale());
+    const int fallbackHeight = qRound(kPreviewItemHeight * _scale);
     return qMax(fallbackHeight, hintedHeight);
+}
+
+void OneLinerPreviewTree::paintEvent(QPaintEvent* event)
+{
+    Q_UNUSED(event)
+
+    if (!rect().isValid()) {
+        return;
+    }
+
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.drawPixmap(rect(), _background.toPixmap(size()));
 }
