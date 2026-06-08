@@ -377,8 +377,8 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     _inputBackground.setCornerRadius({kPanelCornerRadius, kPanelCornerRadius, kPanelCornerRadius, kPanelCornerRadius});
 
     _previewBackground.setBrush(OneQtBrush::fromColor(QColor(18, 22, 29, 176)));
-    _previewBackground.setBorderBrush(OneQtBrush::fromColor(QColor(82, 133, 166, 188)));
-    _previewBackground.setBorderWidth(1.0);
+    _previewBackground.setBorderBrush(OneQtBrush::fromColor(QColor(0, 0, 0, 0)));
+    _previewBackground.setBorderWidth(0.0);
     _previewBackground.setCornerRadius({kPanelCornerRadius, kPanelCornerRadius, kPanelCornerRadius, kPanelCornerRadius});
 
     _lineEdit->setFrame(false);

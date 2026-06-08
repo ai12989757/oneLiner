@@ -22,7 +22,7 @@ namespace {
 constexpr int kPreviewItemHeight = 22;
 constexpr int kPreviewMaxVisibleItems = 10;
 constexpr int kPreviewIconSourceSize = 64;
-constexpr qreal kPreviewIconHeightRatio = 0.6;
+constexpr qreal kPreviewIconHeightRatio = 0.8;
 
 QFont previewFont(qreal scale)
 {
@@ -32,25 +32,25 @@ QFont previewFont(qreal scale)
     return font;
 }
 
-int previewTreeIndentation(const QFontMetrics& metrics)
-{
-    return qMax(1, qRound(metrics.height() * 0.8));
-}
-
 class PreviewNameItemWidget : public QWidget
 {
 public:
-    PreviewNameItemWidget(const QPixmap& iconPixmap, const QString& text, int leadingInset, qreal scale, QWidget* parent = nullptr)
+    PreviewNameItemWidget(const QPixmap& iconPixmap, const QString& text, qreal scale, QWidget* parent = nullptr)
         : QWidget(parent)
         , _iconPixmap(iconPixmap)
         , _text(text)
-        , _leadingInset(leadingInset)
         , _scale(scale)
     {
         setAttribute(Qt::WA_TranslucentBackground, true);
         setAttribute(Qt::WA_TransparentForMouseEvents, true);
         setAutoFillBackground(false);
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    }
+
+    void setScale(qreal scale)
+    {
+        _scale = scale;
+        update();
     }
 
 protected:
@@ -65,14 +65,14 @@ protected:
         const int contentGap = qMax(1, qRound(1 * _scale));
         const int resolvedIconSize = qMax(11, qRound(height() * kPreviewIconHeightRatio));
 
-        int textLeft = _leadingInset;
+        int textLeft = 0;
         if (!_iconPixmap.isNull()) {
             const QPixmap scaledPixmap = _iconPixmap.scaled(
                 resolvedIconSize,
                 resolvedIconSize,
                 Qt::KeepAspectRatio,
                 Qt::SmoothTransformation);
-            const int iconX = _leadingInset + contentGap;
+            const int iconX = contentGap;
             const int iconY = qMax(0, (height() - scaledPixmap.height()) / 2);
             painter.drawPixmap(iconX, iconY, scaledPixmap);
             textLeft = iconX + scaledPixmap.width() + contentGap;
@@ -88,9 +88,24 @@ protected:
 private:
     QPixmap _iconPixmap;
     QString _text;
-    int _leadingInset;
     qreal _scale;
 };
+
+void updatePreviewNameWidgets(QTreeWidget* treeWidget, QTreeWidgetItem* item, qreal scale)
+{
+    if (treeWidget == nullptr || item == nullptr) {
+        return;
+    }
+
+    if (PreviewNameItemWidget* nameWidget = dynamic_cast<PreviewNameItemWidget*>(treeWidget->itemWidget(item, 0))) {
+        nameWidget->setFont(previewFont(scale));
+        nameWidget->setScale(scale);
+    }
+
+    for (int childIndex = 0; childIndex < item->childCount(); ++childIndex) {
+        updatePreviewNameWidgets(treeWidget, item->child(childIndex), scale);
+    }
+}
 
 QPixmap mayaNodePixmap(const QString& typeName)
 {
@@ -147,7 +162,7 @@ void applyPreviewScrollBarStyle(OneQtScrollBar* scrollBar)
     normalScrollThumb.setCornerRadius(0.0);
 
     OneQtBackground hoverScrollThumb;
-    hoverScrollThumb.setBrush(OneQtBrush::fromColor(QColor(255, 255, 255, 50)));
+    hoverScrollThumb.setBrush(OneQtBrush::fromColor(QColor(255, 255, 255, 0)));
     hoverScrollThumb.setBorderBrush(OneQtBrush::fromColor(QColor(0, 0, 0, 0)));
     hoverScrollThumb.setBorderWidth(0.0);
     hoverScrollThumb.setCornerRadius(0.0);
@@ -171,18 +186,33 @@ void applyPreviewTreeItemStyle(QTreeWidget* treeWidget)
         return;
     }
 
+    treeWidget->setProperty("oneLinerPreviewItemStyle", true);
     treeWidget->setStyleSheet(
-        treeWidget->styleSheet()
-        + QStringLiteral(
+        QStringLiteral(
+            "QTreeView {"
+            " border: none;"
+            " outline: 0;"
+            "}"
+            "QTreeView::viewport {"
+            " border: none;"
+            "}"
             "QTreeView::item {"
+            " color: rgba(226,232,240,240);"
+            " background: transparent;"
             " padding: 0px;"
             " margin: 0px;"
             "}"
             "QTreeView::item:hover {"
+            " color: rgba(226,232,240,240);"
+            " background: transparent;"
             " padding: 0px;"
             " margin: 0px;"
             "}"
             "QTreeView::item:selected {"
+            " color: rgba(226,232,240,240);"
+            " background: transparent;"
+            " border: none;"
+            " outline: 0;"
             " padding: 0px;"
             " margin: 0px;"
             "}"));
@@ -229,15 +259,26 @@ OneLinerPreviewTree::OneLinerPreviewTree(QWidget* parent)
 
 void OneLinerPreviewTree::applyScale(qreal scale)
 {
-    OneQtTree::setScale(scale);
-
     QTreeWidget* nativeTree = treeWidget();
     applyPreviewTreeItemStyle(nativeTree);
     const QFont treeFont = previewFont(scale);
     nativeTree->setFont(treeFont);
-    // Item widgets rely on the native tree indentation for hierarchy placement.
-    // Keep it aligned with OneTree's own branch offset computation.
-    nativeTree->setIndentation(previewTreeIndentation(QFontMetrics(treeFont)));
+    nativeTree->setProperty("oneqtTreeStructureLeftMargin", qRound(3 * scale));
+    nativeTree->setProperty("oneqtTreeIndicatorExtent", qRound(10 * scale));
+    nativeTree->setProperty("oneqtTreeLeafDotDiameter", qRound(5 * scale));
+    nativeTree->setProperty("oneqtTreeMarkerItemGap", qRound(3 * scale));
+    nativeTree->setProperty("oneqtTreeRowCornerRadius", qMax(2, qRound(4 * scale)));
+    nativeTree->setProperty("oneqtTreeDisableSelectionState", true);
+
+    OneQtTree::setScale(scale);
+    applyPreviewTreeItemStyle(nativeTree);
+    nativeTree->clearSelection();
+    nativeTree->setCurrentItem(nullptr);
+
+    for (int index = 0; index < nativeTree->topLevelItemCount(); ++index) {
+        updatePreviewNameWidgets(nativeTree, nativeTree->topLevelItem(index), scale);
+    }
+    nativeTree->viewport()->update();
 
     if (OneQtScrollBar* verticalScrollBar = verticalOneScrollBar()) {
         verticalScrollBar->setThickness(4);
@@ -296,10 +337,9 @@ void OneLinerPreviewTree::rebuildPreview(const OneLinerEngine::PreviewResult& re
         PreviewNameItemWidget* nameWidget = new PreviewNameItemWidget(
             mayaNodePixmap(previewItem.iconTypeName),
             previewItem.name,
-            0,
             scale(),
             nativeTree);
-        nameWidget->setFont(nativeTree->font());
+        nameWidget->setFont(previewFont(scale()));
         nameWidget->setMinimumHeight(rowHeight);
         nativeTree->setItemWidget(item, 0, nameWidget);
     }
