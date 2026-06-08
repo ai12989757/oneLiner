@@ -22,6 +22,7 @@ public:
         QString rawText;
         QString name;
         QString typeName;
+        QString iconTypeName;
         QString path;
         QString parentPath;
         bool isDag = false;

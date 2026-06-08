@@ -287,6 +287,43 @@ QString targetTypeName(const OneLinerEngine::RenameTarget& target)
     return toQString(dependencyNode.typeName());
 }
 
+QString targetIconTypeName(const OneLinerEngine::RenameTarget& target)
+{
+    const QString targetType = targetTypeName(target);
+    if (!target.isDag || !OneLinerEngine::isTransformLike(target.object)) {
+        return targetType;
+    }
+
+    MStatus status;
+    MFnDagNode dagNode(target.object, &status);
+    if (status != MS::kSuccess) {
+        return targetType;
+    }
+
+    QString fallbackShapeType;
+    for (unsigned int childIndex = 0; childIndex < dagNode.childCount(); ++childIndex) {
+        MObject childObject = dagNode.child(childIndex, &status);
+        if (status != MS::kSuccess || !childObject.hasFn(MFn::kShape)) {
+            continue;
+        }
+
+        MFnDagNode childDagNode(childObject, &status);
+        if (status != MS::kSuccess) {
+            continue;
+        }
+
+        const QString shapeType = toQString(childDagNode.typeName());
+        if (!childDagNode.isIntermediateObject()) {
+            return shapeType;
+        }
+        if (fallbackShapeType.isEmpty()) {
+            fallbackShapeType = shapeType;
+        }
+    }
+
+    return fallbackShapeType.isEmpty() ? targetType : fallbackShapeType;
+}
+
 QString targetParentPath(const OneLinerEngine::RenameTarget& target)
 {
     if (!target.isDag) {
@@ -323,6 +360,7 @@ OneLinerEngine::PreviewResult OneLinerEngine::preview(const QString& rule, Scope
         previewItem.rawText = result.rawItems.value(index, result.items.at(index));
         previewItem.name = previewItem.rawText;
         previewItem.typeName = targetTypeName(target);
+        previewItem.iconTypeName = targetIconTypeName(target);
         previewItem.path = target.path;
         previewItem.parentPath = targetParentPath(target);
         previewItem.isDag = target.isDag;
