@@ -33,20 +33,20 @@ constexpr const char* kModeFlag = "-m";
 constexpr const char* kModeLongFlag = "-mode";
 constexpr const char* kClearPastedFlag = "-cp";
 constexpr const char* kClearPastedLongFlag = "-clearPasted";
-constexpr const char* kHelpFlag = "-hp";
+constexpr const char* kHelpFlag = "-h";
 constexpr const char* kHelpLongFlag = "-help";
 
 QString commandHelp()
 {
     return QStringLiteral(
         "oneLiner flags:\n"
-        "  -showWindow / -sw             打开 C++ UI\n"
-        "  -rule / -r <text>             传入 oneLiner 规则\n"
-        "  -preview / -p                 返回预览列表\n"
-        "  -execute / -e                 直接执行重命名\n"
-        "  -mode / -m <s|h|a>            强制作用范围\n"
-        "  -clearPasted / -cp            清理 pasted__ 前缀\n"
-        "  -help / -hp                   输出帮助文本");
+        "  -showWindow / -sw             Open the C++ UI\n"
+        "  -rule / -r <text>             Provide a oneLiner rule string\n"
+        "  -preview / -p                 Return a preview list instead of renaming\n"
+        "  -execute / -e                 Execute renaming immediately\n"
+        "  -mode / -m <s|h|a>            Force scope (selected/hierarchy/all)\n"
+        "  -clearPasted / -cp            Clear pasted__ prefixes\n"
+        "  -help / -h                    Print this help text\n");
 }
 
 QString resolveProjectRoot(const QDir& pluginBinDir)

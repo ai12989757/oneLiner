@@ -46,6 +46,38 @@ build.bat
 
 编译完成后插件输出到 `bin/<MayaVersion>/oneLiner.mll`。
 
+## oneLiner 命令（Maya）
+
+插件也可以通过 Maya 命令行方式调用。示例：
+
+- 打开 UI：
+
+```mel
+oneLiner -showWindow;
+```
+
+- 获取规则预览（不执行重命名）：
+
+```mel
+oneLiner -rule "ctrl_##/3" -preview;
+```
+
+- 从脚本直接执行重命名：
+
+```mel
+oneLiner -rule "L_>R_" -execute;
+```
+
+可用标志：
+
+- `-showWindow / -sw` — 打开插件 UI
+- `-rule / -r <text>` — 传入规则字符串
+- `-preview / -p` — 返回预览列表（不执行重命名）
+- `-execute / -e` — 直接执行重命名
+- `-mode / -m <s|h|a>` — 强制作用域（`s`=selected, `h`=hierarchy, `a`=all）
+- `-clearPasted / -cp` — 清理 `pasted__` 前缀
+- `-help / -h` — 输出命令帮助文本（包含中/英两种说明）
+
 ## 使用说明
 
 ### 基础流程

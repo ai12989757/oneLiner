@@ -46,6 +46,38 @@ build.bat
 
 The compiled plugin is written to `bin/<MayaVersion>/oneLiner.mll`.
 
+## Command-line / Maya `oneLiner` Command
+
+`oneLiner` can also be invoked from Maya as a command. Example usages:
+
+- Open the UI:
+
+```mel
+oneLiner -showWindow;
+```
+
+- Get a preview for a rule (no renaming):
+
+```mel
+oneLiner -rule "ctrl_##/3" -preview;
+```
+
+- Execute a rule immediately from script:
+
+```mel
+oneLiner -rule "L_>R_" -execute;
+```
+
+Flags:
+
+- `-showWindow / -sw` — 打开插件 UI
+- `-rule / -r <text>` — 传入规则字符串
+- `-preview / -p` — 返回预览列表（不执行重命名）
+- `-execute / -e` — 直接执行重命名
+- `-mode / -m <s|h|a>` — 强制作用域（`s`=selected, `h`=hierarchy, `a`=all）
+- `-clearPasted / -cp` — 清理 `pasted__` 前缀
+- `-help / -h` — 输出命令帮助文本（包含中/英两种说明）
+
 ## Usage
 
 ### Basic Flow

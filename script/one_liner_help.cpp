@@ -73,7 +73,7 @@ QVector<HelpSectionData> helpSections()
             QStringLiteral("<span style='color:#ffd27a;'>! # @ 符号</span>"),
             {
                 { imagePath(QStringLiteral("02.gif")), QStringLiteral("[!] 复用旧名称，例如 side_!；支持中文输入法下的全角感叹号/问号等等效符号。") },
-                { imagePath(QStringLiteral("03.gif")), QStringLiteral("[#] 数字序号：使用多个 `#` 控制补零位数，例如 `ctrl_##` → `01, 02, ...`；在标记末尾追加 `//N` 可以设置起始值，例如 `ctrl_##//3` → `03, 04, ...`。") },
+                { imagePath(QStringLiteral("03.gif")), QStringLiteral("[#] 数字序号：使用多个 `#` 控制补零位数，例如 `ctrl_##` → `01, 02, ...`；在标记末尾追加 `/N` 可以设置起始值，例如 `ctrl_##/3` → `03, 04, ...`。") },
                 { imagePath(QStringLiteral("04.gif")), QStringLiteral("[@] 字母序号：支持两种模式。\n单个 `@`（可扩展进位）：产生 `A, B, ..., Z, AA, AB, ...`（溢出时左侧进位）。\n多个 `@`（固定宽度）：`@@` / `@@@` 保留精确字母位数，例如 `@@` 会生成 `AA, AB, ..., AZ, BA, ...`。\n可在标记后使用 `/` 提供起始模板与大小写控制，例如 `@@/Aa` 表示从 `Aa` 开始（模板中大写位表示该位为大写，小写位表示该位为小写）。若模板格式不合法，引擎会退化为把标记作为普通文本以避免不期望的前缀。") },
             }
         },
