@@ -30,14 +30,6 @@ QString toQString(const MString& value)
     return QString::fromUtf8(value.asChar());
 }
 
-QString quoteMel(const QString& value)
-{
-    QString escaped = value;
-    escaped.replace(QStringLiteral("\\"), QStringLiteral("\\\\"));
-    escaped.replace(QStringLiteral("\""), QStringLiteral("\\\""));
-    return QStringLiteral("\"") + escaped + QStringLiteral("\"");
-}
-
 bool readBoolOptionVar(const char* optionVarName, bool defaultValue)
 {
     int exists = 0;

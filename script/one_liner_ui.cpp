@@ -233,14 +233,6 @@ qreal mayaDpiScale(QWidget* widget)
     return qMax<qreal>(1.0, qMax(screenScale, deviceScale));
 }
 
-QString quoteMelString(const QString& value)
-{
-    QString escaped = value;
-    escaped.replace(QStringLiteral("\\"), QStringLiteral("\\\\"));
-    escaped.replace(QStringLiteral("\""), QStringLiteral("\\\""));
-    return QStringLiteral("\"") + escaped + QStringLiteral("\"");
-}
-
 QFont baseUiFont()
 {
     QFont font;
@@ -646,8 +638,21 @@ void OneLinerWindow::executeRule()
     }
 
     rememberHistory(text);
-    const QString command = QStringLiteral("oneLiner -execute -rule %1").arg(quoteMelString(text));
-    MGlobal::executeCommand(toMString(command), false, true);
+    const OneLinerEngine::ExecutePlan plan = OneLinerEngine::buildExecutePlan(
+        text,
+        OneLinerEngine::ScopeMode::Selected,
+        false);
+    bool success = true;
+    if (!plan.noop) {
+        if (plan.selectionOnly) {
+            success = OneLinerEngine::selectTargets(plan.selectionTargets);
+        } else if (!plan.renameOperations.isEmpty()) {
+            success = OneLinerEngine::applyRenameOperations(plan.renameOperations, true);
+        }
+    }
+    if (!success) {
+        MGlobal::displayWarning("oneLiner: failed to execute rule.");
+    }
     _lineEdit->clear();
     refreshPreview();
 }
