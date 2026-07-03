@@ -7,6 +7,7 @@
 #include <maya/MItDependencyNodes.h>
 #include <maya/MItSelectionList.h>
 #include <maya/MObjectHandle.h>
+#include <maya/MPlug.h>
 #include <maya/MSelectionList.h>
 #include <maya/MStatus.h>
 #include <maya/MString.h>
@@ -523,6 +524,46 @@ QString targetParentPath(const OneLinerEngine::RenameTarget& target)
     return target.path.left(splitIndex);
 }
 
+// 节点是否被锁定（节点级 lock，改名时应跳过）。
+bool targetIsLocked(const OneLinerEngine::RenameTarget& target)
+{
+    MStatus status;
+    MFnDependencyNode dependencyNode(target.object, &status);
+    if (status != MS::kSuccess) {
+        return false;
+    }
+    return dependencyNode.isLocked();
+}
+
+// DAG 节点是否处于隐藏状态（visibility 属性为 false，或为中间对象）。
+// 非 DAG 节点没有可见性概念，返回 false。
+bool targetIsHidden(const OneLinerEngine::RenameTarget& target)
+{
+    if (!target.isDag) {
+        return false;
+    }
+
+    MStatus status;
+    MFnDagNode dagNode(target.object, &status);
+    if (status != MS::kSuccess) {
+        return false;
+    }
+
+    if (dagNode.isIntermediateObject()) {
+        return true;
+    }
+
+    const MPlug visibilityPlug = dagNode.findPlug(QStringLiteral("visibility").toUtf8().constData(), false, &status);
+    if (status == MS::kSuccess && !visibilityPlug.isNull()) {
+        bool visible = true;
+        if (visibilityPlug.getValue(visible) == MS::kSuccess && !visible) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 } // namespace
 
 OneLinerEngine::PreviewResult OneLinerEngine::preview(const QString& rule)
@@ -550,6 +591,8 @@ OneLinerEngine::PreviewResult OneLinerEngine::preview(const QString& rule, Scope
         previewItem.path = target.path;
         previewItem.parentPath = targetParentPath(target);
         previewItem.isDag = target.isDag;
+        previewItem.isHidden = targetIsHidden(target);
+        previewItem.isLocked = targetIsLocked(target);
         result.previewItems.push_back(previewItem);
     }
     return result;
@@ -617,6 +660,10 @@ OneLinerEngine::ExecutePlan OneLinerEngine::buildExecutePlan(const QString& rule
 
     plan.renameOperations.reserve(targets.size());
     for (int index = 0; index < targets.size(); ++index) {
+        // 锁定节点跳过改名。
+        if (targetIsLocked(targets[index])) {
+            continue;
+        }
         RenameOperation operation;
         operation.object = targets[index].object;
         operation.oldName = shortName(targets[index].currentName);

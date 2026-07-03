@@ -27,6 +27,28 @@ constexpr int kPreviewIconSourceSize = 64;
 constexpr qreal kPreviewIconHeightRatio = 0.8;
 constexpr int kPreviewOuterMargin = 5;
 
+// 预览文本配色：
+//   · 正常节点：接近白色的浅色。
+//   · 隐藏节点：正常色但降低透明度。
+//   · 锁定节点：使用 rgb(107, 176, 255) 蓝色（锁定优先于隐藏）。
+//   · 锁定且隐藏：蓝色但降低透明度。
+const QColor kPreviewTextNormalColor(226, 232, 240, 240);
+const QColor kPreviewTextHiddenColor(226, 232, 240, 110);
+const QColor kPreviewTextLockedColor(107, 176, 255, 255);
+const QColor kPreviewTextLockedHiddenColor(107, 176, 255, 150);
+
+// 根据隐藏/锁定状态解析预览文本颜色（锁定优先）。
+QColor previewTextColor(bool isHidden, bool isLocked)
+{
+    if (isLocked) {
+        return isHidden ? kPreviewTextLockedHiddenColor : kPreviewTextLockedColor;
+    }
+    if (isHidden) {
+        return kPreviewTextHiddenColor;
+    }
+    return kPreviewTextNormalColor;
+}
+
 QFont previewFont(qreal scale)
 {
     QFont font;
@@ -43,6 +65,7 @@ public:
         , _iconPixmap(iconPixmap)
         , _text(text)
         , _scale(scale)
+        , _textColor(226, 232, 240, 240)
     {
         setAttribute(Qt::WA_TranslucentBackground, true);
         setAttribute(Qt::WA_TransparentForMouseEvents, true);
@@ -53,6 +76,13 @@ public:
     void setScale(qreal scale)
     {
         _scale = scale;
+        update();
+    }
+
+    // 自定义文本颜色（用于隐藏/锁定节点的状态着色）。
+    void setTextColor(const QColor& color)
+    {
+        _textColor = color;
         update();
     }
 
@@ -81,7 +111,7 @@ protected:
             textLeft = iconX + scaledPixmap.width() + contentGap;
         }
 
-        painter.setPen(QColor(226, 232, 240, 240));
+        painter.setPen(_textColor);
         painter.setFont(font());
         const QFontMetrics metrics(font());
         const QString elidedText = metrics.elidedText(_text, Qt::ElideRight, qMax(0, width() - textLeft));
@@ -92,6 +122,7 @@ private:
     QPixmap _iconPixmap;
     QString _text;
     qreal _scale;
+    QColor _textColor;
 };
 
 void updatePreviewNameWidgets(QTreeWidget* treeWidget, QTreeWidgetItem* item, qreal scale)
@@ -373,6 +404,7 @@ void OneLinerPreviewTree::rebuildPreview(const OneLinerEngine::PreviewResult& re
             nativeTree);
         nameWidget->setFont(previewFont(_scale));
         nameWidget->setMinimumHeight(rowHeight);
+        nameWidget->setTextColor(previewTextColor(previewItem.isHidden, previewItem.isLocked));
         nativeTree->setItemWidget(item, 0, nameWidget);
     }
 

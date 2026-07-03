@@ -26,6 +26,8 @@ public:
         QString path;
         QString parentPath;
         bool isDag = false;
+        bool isHidden = false;
+        bool isLocked = false;
     };
 
     struct PreviewResult {
@@ -40,6 +42,7 @@ public:
         QString path;
         QString currentName;
         bool isDag = false;
+        bool isLocked = false;
     };
 
     struct RenameOperation {
@@ -47,6 +50,7 @@ public:
         QString oldName;
         QString newName;
         bool isDag = false;
+        bool isLocked = false;
     };
 
     struct ExecutePlan {
