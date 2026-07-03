@@ -30,12 +30,12 @@ constexpr int kPreviewOuterMargin = 5;
 // 预览文本配色：
 //   · 正常节点：接近白色的浅色。
 //   · 隐藏节点：正常色但降低透明度。
-//   · 锁定节点：使用 rgb(107, 176, 255) 蓝色（锁定优先于隐藏）。
-//   · 锁定且隐藏：蓝色但降低透明度。
+//   · 锁定节点：使用 纯黑。
+//   · 锁定且隐藏：纯黑但降低透明度。
 const QColor kPreviewTextNormalColor(226, 232, 240, 240);
 const QColor kPreviewTextHiddenColor(226, 232, 240, 110);
-const QColor kPreviewTextLockedColor(107, 176, 255, 255);
-const QColor kPreviewTextLockedHiddenColor(107, 176, 255, 150);
+const QColor kPreviewTextLockedColor(0, 0, 0, 255);
+const QColor kPreviewTextLockedHiddenColor(0, 0, 0, 150);
 
 // 根据隐藏/锁定状态解析预览文本颜色（锁定优先）。
 QColor previewTextColor(bool isHidden, bool isLocked)
