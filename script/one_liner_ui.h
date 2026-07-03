@@ -10,8 +10,7 @@
 #include <QWidget>
 
 class QDialog;
-class QLineEdit;
-class OneQtAction;
+class OneQtLineEdit;
 class OneQtMenu;
 class OneLinerPreviewTree;
 class QTimer;
@@ -41,9 +40,6 @@ private:
     void positionNearCursor();
     void updateScaleFromMaya();
     void updateLayoutMetrics();
-    void refreshImeStatus();
-    void toggleImeLanguage();
-    void toggleCapsLock();
     void applyWindowLayout(int previewHeight);
     void rebuildPreviewTree(const OneLinerEngine::PreviewResult& result);
     void rememberHistory(const QString& text);
@@ -65,8 +61,6 @@ private:
     bool _isClosing;
     int _previewTopInset;
     int _historyIndex;
-    bool _imeIsChinese;
-    bool _capsLockOn;
     bool _dragging;
     bool _resizingWidth;
     QPoint _dragStart;
@@ -76,12 +70,7 @@ private:
     OneQtBackground _inputBackground;
     OneQtBackground _previewBackground;
     QVBoxLayout* _rootLayout;
-    QLineEdit* _lineEdit;
-    QWidget* _imeStatusHost;
-    OneQtAction* _clearTextAction;
-    OneQtAction* _imeLanguageAction;
-    OneQtAction* _imeCapsAction;
-    QTimer* _imeStatusTimer;
+    OneQtLineEdit* _lineEdit;
     OneLinerPreviewTree* _previewList;
     QPointer<OneQtMenu> _toolsMenu;
     QPointer<QDialog> _helpDialog;

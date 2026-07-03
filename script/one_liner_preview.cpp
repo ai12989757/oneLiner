@@ -363,7 +363,7 @@ void OneLinerPreviewTree::rebuildPreview(const OneLinerEngine::PreviewResult& re
             continue;
         }
 
-        const int rowHeight = qMax(22, qRound(kPreviewItemHeight * _scale));
+        const int rowHeight = resolvedRowHeight();
         item->setSizeHint(0, QSize(0, rowHeight));
 
         PreviewNameItemWidget* nameWidget = new PreviewNameItemWidget(
@@ -450,10 +450,11 @@ void OneLinerPreviewTree::expandAllItems()
 
 int OneLinerPreviewTree::resolvedRowHeight() const
 {
-    const QTreeWidget* nativeTree = treeWidget();
-    const int hintedHeight = nativeTree->topLevelItemCount() > 0 ? nativeTree->sizeHintForRow(0) : 0;
-    const int fallbackHeight = qRound(kPreviewItemHeight * _scale);
-    return qMax(fallbackHeight, hintedHeight);
+    // 行高由 rebuildPreview 中 item->setSizeHint 主动设定为固定值，
+    // 这里必须返回同一个固定值，而不能依赖 sizeHintForRow(0)：
+    // 后者需要 tree 完成一次布局后才准确，首次显示时会偏大，
+    // 导致预览面板底部出现多余空白（直到下一次更新才修正）。
+    return qMax(22, qRound(kPreviewItemHeight * _scale));
 }
 
 void OneLinerPreviewTree::paintEvent(QPaintEvent* event)

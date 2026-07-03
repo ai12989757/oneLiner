@@ -116,7 +116,7 @@ if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 
 set "CORE_DIR=%ONEQT_DIR%\Core"
 set "WIDGETS_DIR=%ONEQT_DIR%\Widgets"
-set "CPPFLAGS=/nologo /std:c++17 /utf-8 /EHsc /MD /W4 /Zc:__cplusplus /DWIN32 /D_WINDOWS /DUNICODE /D_UNICODE /DNT_PLUGIN /DQT_NO_KEYWORDS /DQT_DEPRECATED_WARNINGS /DONETWIDGETS_STATIC /I"%SOURCE_DIR%" /I"%CORE_DIR%" /I"%CORE_DIR%\OneAnimIcon" /I"%CORE_DIR%\OneBackground" /I"%CORE_DIR%\OneBrush" /I"%CORE_DIR%\OneFont" /I"%CORE_DIR%\OneIcon" /I"%CORE_DIR%\Internal" /I"%WIDGETS_DIR%" /I"%WIDGETS_DIR%\OneAction" /I"%WIDGETS_DIR%\OneList" /I"%WIDGETS_DIR%\OneMenu" /I"%WIDGETS_DIR%\OneScrollBar" /I"%WIDGETS_DIR%\OneSeparator" /I"%WIDGETS_DIR%\OneTree" /I"%MAYA_INCLUDE%" /I"%QT_INCLUDE%" /I"%QT_INCLUDE%\QtCore" /I"%QT_INCLUDE%\QtGui" /I"%QT_INCLUDE%\QtWidgets" /I"%QT_INCLUDE%\QtSvg""
+set "CPPFLAGS=/nologo /std:c++17 /utf-8 /EHsc /MD /W4 /Zc:__cplusplus /DWIN32 /D_WINDOWS /DUNICODE /D_UNICODE /DNT_PLUGIN /DQT_NO_KEYWORDS /DQT_DEPRECATED_WARNINGS /DONETWIDGETS_STATIC /I"%SOURCE_DIR%" /I"%CORE_DIR%" /I"%CORE_DIR%\OneAnimIcon" /I"%CORE_DIR%\OneBackground" /I"%CORE_DIR%\OneBrush" /I"%CORE_DIR%\OneFont" /I"%CORE_DIR%\OneIcon" /I"%CORE_DIR%\OneStyle" /I"%CORE_DIR%\Internal" /I"%WIDGETS_DIR%" /I"%WIDGETS_DIR%\OneAction" /I"%WIDGETS_DIR%\OneLineEdit" /I"%WIDGETS_DIR%\OneList" /I"%WIDGETS_DIR%\OneMenu" /I"%WIDGETS_DIR%\OneScrollBar" /I"%WIDGETS_DIR%\OneSeparator" /I"%WIDGETS_DIR%\OneTree" /I"%MAYA_INCLUDE%" /I"%QT_INCLUDE%" /I"%QT_INCLUDE%\QtCore" /I"%QT_INCLUDE%\QtGui" /I"%QT_INCLUDE%\QtWidgets" /I"%QT_INCLUDE%\QtSvg""
 set "LDFLAGS=/NOLOGO /DLL /INCREMENTAL:NO /MACHINE:X64 /LIBPATH:"%MAYA_LIB%" /LIBPATH:"%QT_LIB%" Foundation.lib OpenMaya.lib OpenMayaUI.lib Qt5Core.lib Qt5Gui.lib Qt5Widgets.lib Qt5Svg.lib user32.lib gdi32.lib shell32.lib advapi32.lib imm32.lib"
 
 pushd "%BUILD_DIR%" >nul
@@ -130,9 +130,12 @@ cl %CPPFLAGS% /c ^
     "%CORE_DIR%\Internal\oneqt_renderer.cpp" ^
     "%CORE_DIR%\Internal\oneqt_system.cpp" ^
     "%CORE_DIR%\OneBackground\one_background.cpp" ^
+    "%CORE_DIR%\OneStyle\oneqt_json5.cpp" ^
+    "%CORE_DIR%\OneStyle\one_style.cpp" ^
     "%CORE_DIR%\OneFont\one_font.cpp" ^
     "%CORE_DIR%\OneIcon\one_icon.cpp" ^
     "%WIDGETS_DIR%\OneAction\one_action.cpp" ^
+    "%WIDGETS_DIR%\OneLineEdit\one_line_edit.cpp" ^
     "%WIDGETS_DIR%\OneList\one_list.cpp" ^
     "%WIDGETS_DIR%\OneMenu\one_menu.cpp" ^
     "%WIDGETS_DIR%\OneScrollBar\one_scroll_bar.cpp" ^
@@ -159,9 +162,12 @@ link %LDFLAGS% /OUT:"%TEMP_MLL%" ^
     oneqt_renderer.obj ^
     oneqt_system.obj ^
     one_background.obj ^
+    oneqt_json5.obj ^
+    one_style.obj ^
     one_font.obj ^
     one_icon.obj ^
     one_action.obj ^
+    one_line_edit.obj ^
     one_list.obj ^
     one_menu.obj ^
     one_scroll_bar.obj ^

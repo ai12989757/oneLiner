@@ -4,6 +4,7 @@
 #include "one_liner_preview.h"
 #include "one_liner_tools_menu.h"
 
+#include "one_line_edit.h"
 #include "one_menu.h"
 #include "oneqt_brush.h"
 #include "oneqt_system.h"
@@ -17,9 +18,7 @@
 #include <QDialog>
 #include <QEvent>
 #include <QGuiApplication>
-#include <QHBoxLayout>
 #include <QKeyEvent>
-#include <QLabel>
 #include <QLineEdit>
 #include <QLayout>
 #include <QMouseEvent>
@@ -33,15 +32,6 @@
 #include <QVBoxLayout>
 #include <QWindow>
 #include <QWheelEvent>
-#include <QSvgRenderer>
-
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <imm.h>
-#endif
 
 namespace {
 
@@ -52,157 +42,21 @@ constexpr const char* kInputWidthOptionVar = "oneLinerInputWidth";
 
 constexpr int kInputWidth = 320;
 constexpr int kInputMinWidth = 220;
-constexpr int kInputHeight = 26;
+constexpr int kInputHeight = 28;
 constexpr int kInputFontSize = 12;
 constexpr int kPreviewGap = 4;
-constexpr int kContentLeftPadding = 10;
 constexpr qreal kPanelCornerRadius = 6.0;
-constexpr qreal kItemCornerRadius = 4.0;
 constexpr int kInputHistoryLimit = 50;
-constexpr int kImeStatusPollIntervalMs = 120;
-constexpr int kImeIconSize = 18;
-constexpr int kImeStatusGlyphSize = 10;
-constexpr int kImeClearGlyphSize = 12;
-constexpr int kImeIconSpacing = 0;
-constexpr int kImeStatusRightPadding = 4;
 constexpr int kResizeHandleWidth = 8;
-#ifdef _WIN32
-constexpr WPARAM kImeGetConversionMode = 0x0001;
-constexpr WPARAM kImeGetOpenStatus = 0x0005;
-constexpr WPARAM kImeSetConversionMode = 0x0002;
-constexpr WPARAM kImeSetOpenStatus = 0x0006;
-#endif
 
 constexpr char kClearTextIconPath[] = "oneLinerIcons:fluent--dismiss-20-filled.svg";
 constexpr char kLanguageChineseIconPath[] = "oneLinerIcons:Chinese.svg";
 constexpr char kLanguageEnglishIconPath[] = "oneLinerIcons:English.svg";
-constexpr char kCapsLockIconPath[] = "oneLinerIcons:fluent--keyboard-shift-uppercase-20-filled.svg";
+constexpr char kCapsLockOnIconPath[] = "oneLinerIcons:fluent--keyboard-shift-uppercase-20-filled.svg";
+constexpr char kCapsLockOffIconPath[] = "oneLinerIcons:fluent--keyboard-shift-uppercase-20-regular.svg";
 
 QPointer<OneLinerWindow> g_window;
 QStringList g_inputHistory;
-
-QPixmap renderWhiteSvgIcon(const QByteArray& svgData, const QSize& size)
-{
-    if (size.isEmpty()) {
-        return QPixmap();
-    }
-
-    QSvgRenderer renderer(svgData);
-    if (!renderer.isValid()) {
-        return QPixmap();
-    }
-
-    QPixmap pixmap(size);
-    pixmap.fill(Qt::transparent);
-
-    QPainter painter(&pixmap);
-    renderer.render(&painter);
-    return pixmap;
-}
-
-#ifdef _WIN32
-HWND focusedInputWindow()
-{
-    const HWND foreground = ::GetForegroundWindow();
-    if (foreground == nullptr) {
-        return nullptr;
-    }
-
-    const DWORD threadId = ::GetWindowThreadProcessId(foreground, nullptr);
-    if (threadId == 0) {
-        return foreground;
-    }
-
-    GUITHREADINFO threadInfo = {};
-    threadInfo.cbSize = sizeof(GUITHREADINFO);
-    if (::GetGUIThreadInfo(threadId, &threadInfo)) {
-        return threadInfo.hwndFocus != nullptr ? threadInfo.hwndFocus : foreground;
-    }
-
-    return foreground;
-}
-
-int queryImeControl(HWND hwnd, WPARAM command)
-{
-    if (hwnd == nullptr) {
-        return -1;
-    }
-
-    const HWND imeWindow = ::ImmGetDefaultIMEWnd(hwnd);
-    if (imeWindow == nullptr) {
-        return -1;
-    }
-
-    DWORD_PTR result = 0;
-    const LRESULT ok = ::SendMessageTimeoutW(
-        imeWindow,
-        WM_IME_CONTROL,
-        command,
-        0,
-        SMTO_NORMAL,
-        100,
-        &result);
-    if (ok == 0) {
-        return -1;
-    }
-
-    return static_cast<int>(result);
-}
-
-bool setImeControl(HWND hwnd, WPARAM command, LPARAM value)
-{
-    if (hwnd == nullptr) {
-        return false;
-    }
-
-    const HWND imeWindow = ::ImmGetDefaultIMEWnd(hwnd);
-    if (imeWindow == nullptr) {
-        return false;
-    }
-
-    DWORD_PTR result = 0;
-    const LRESULT ok = ::SendMessageTimeoutW(
-        imeWindow,
-        WM_IME_CONTROL,
-        command,
-        value,
-        SMTO_NORMAL,
-        100,
-        &result);
-    return ok != 0;
-}
-
-bool setImeChineseState(HWND hwnd, bool chinese)
-{
-    if (hwnd == nullptr) {
-        return false;
-    }
-
-    if (!chinese) {
-        return setImeControl(hwnd, kImeSetOpenStatus, FALSE);
-    }
-
-    const int currentMode = queryImeControl(hwnd, kImeGetConversionMode);
-    const LPARAM nextMode = currentMode >= 0
-        ? static_cast<LPARAM>(currentMode | IME_CMODE_NATIVE)
-        : static_cast<LPARAM>(IME_CMODE_NATIVE);
-
-    const bool opened = setImeControl(hwnd, kImeSetOpenStatus, TRUE);
-    const bool converted = setImeControl(hwnd, kImeSetConversionMode, nextMode);
-    return opened || converted;
-}
-
-void sendVirtualKey(WORD virtualKey)
-{
-    INPUT inputs[2] = {};
-    inputs[0].type = INPUT_KEYBOARD;
-    inputs[0].ki.wVk = virtualKey;
-    inputs[1].type = INPUT_KEYBOARD;
-    inputs[1].ki.wVk = virtualKey;
-    inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
-    ::SendInput(2, inputs, sizeof(INPUT));
-}
-#endif
 
 QWidget* mayaMainWindow()
 {
@@ -287,48 +141,6 @@ void writeIntOptionVar(const char* optionVarName, int value)
     MGlobal::executeCommand(toMString(command), false, false);
 }
 
-void configureInputIconActionStyle(OneQtAction* action, qreal scale, const QVariant& iconSource, int iconGlyphSize = kImeIconSize)
-{
-    if (action == nullptr) {
-        return;
-    }
-
-    const OneQtAction::StateName states[] = {
-        OneQtAction::Normal,
-        OneQtAction::Hover,
-        OneQtAction::Pressed,
-        OneQtAction::Disabled,
-    };
-
-    for (OneQtAction::StateName state : states) {
-        OneQtActionStyle style = action->style(state);
-        style.text.clear();
-        style.iconSource = iconSource;
-        style.iconCanvasSize = QSize(kImeIconSize, kImeIconSize);
-        style.iconSize = QSize(iconGlyphSize, iconGlyphSize);
-        style.padding = QMargins(0, 0, 0, 0);
-        style.spacing = 0;
-        style.borderWidth = 0.0;
-        style.cornerRadii = {kItemCornerRadius, kItemCornerRadius, kItemCornerRadius, kItemCornerRadius};
-        style.iconBrush = OneQtBrush::fromColor(QColor(QStringLiteral("#f4f6f8")));
-        style.borderBrush = OneQtBrush::fromColor(QColor(0, 0, 0, 0));
-        style.backgroundBrush = OneQtBrush::fromColor(QColor(0, 0, 0, 0));
-
-        if (state == OneQtAction::Hover) {
-            style.backgroundBrush = OneQtBrush::fromColor(QColor(255, 255, 255, 28));
-        } else if (state == OneQtAction::Pressed) {
-            style.backgroundBrush = OneQtBrush::fromColor(QColor(255, 255, 255, 42));
-        } else if (state == OneQtAction::Disabled) {
-            style.iconBrush = OneQtBrush::fromColor(QColor(244, 246, 248, 90));
-        }
-
-        action->setStyle(state, style);
-    }
-
-    action->setScale(scale);
-    action->setPreferredSize(QSize(kImeIconSize, kImeIconSize));
-}
-
 } // namespace
 
 OneLinerWindow::OneLinerWindow(QWidget* parent)
@@ -345,24 +157,18 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     , _isClosing(false)
     , _previewTopInset(0)
     , _historyIndex(-1)
-    , _imeIsChinese(true)
-    , _capsLockOn(false)
     , _dragging(false)
     , _resizingWidth(false)
     , _resizeStartGlobalX(0)
     , _resizeStartWidth(0)
     , _rootLayout(new QVBoxLayout(this))
-    , _lineEdit(new QLineEdit(this))
-    , _imeStatusHost(new QWidget(_lineEdit))
-    , _clearTextAction(new OneQtAction(_imeStatusHost))
-    , _imeLanguageAction(new OneQtAction(_imeStatusHost))
-    , _imeCapsAction(new OneQtAction(_imeStatusHost))
-    , _imeStatusTimer(new QTimer(this))
+    , _lineEdit(new OneQtLineEdit(this))
     , _previewList(new OneLinerPreviewTree(this))
 {
     setAttribute(Qt::WA_TranslucentBackground, true);
     setWindowFlag(Qt::WindowStaysOnTopHint, true);
 
+    // 输入框面板背景（同时用于工具菜单外壳背景，保持视觉一致）。
     _inputBackground.setBrush(OneQtBrush::fromColor(QColor(18, 22, 29, 184)));
     _inputBackground.setBorderBrush(OneQtBrush::fromColor(QColor(82, 133, 166, 210)));
     _inputBackground.setBorderWidth(1.0);
@@ -373,40 +179,24 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     _previewBackground.setBorderWidth(0.0);
     _previewBackground.setCornerRadius({kPanelCornerRadius, kPanelCornerRadius, kPanelCornerRadius, kPanelCornerRadius});
 
-    _lineEdit->setFrame(false);
-    _lineEdit->setAttribute(Qt::WA_TranslucentBackground, true);
-    _lineEdit->setContextMenuPolicy(Qt::CustomContextMenu);
+    // 让 OneLineEdit 使用与旧版一致的面板背景（焦点时才显示边框）。
+    _lineEdit->setBackground(_inputBackground);
+    _lineEdit->setFocusBorderColor(QColor(82, 133, 166, 210));
+    _lineEdit->setSelectionColor(QColor(82, 133, 166));
     _lineEdit->setPlaceholderText(QStringLiteral("请输入重命名规则，右击查看更多；按住中间拖动以移动窗口"));
-    _lineEdit->setStyleSheet(QStringLiteral(
-        "QLineEdit {"
-        " background: transparent;"
-        " border: none;"
-        " color: #f4f6f8;"
-        " selection-background-color: #5285a6;"
-        " selection-color: #ffffff;"
-        "}"));
     _lineEdit->setToolTip(QStringLiteral("输入重命名规则；支持 Maya 通配符 * ?，以及 -h、-h -s、-type 等 flags。"));
     _lineEdit->setStatusTip(QStringLiteral("输入规则后实时预览，回车执行；上下方向键可切换本次会话的输入历史；按住中间拖动以移动窗口"));
 
-    _imeStatusHost->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-    _imeStatusHost->setAutoFillBackground(false);
-    _clearTextAction->hide();
-    _clearTextAction->setToolTip(QStringLiteral("清除当前输入文本。"));
-    _clearTextAction->setStatusTip(QStringLiteral("点击清空输入框内容。"));
-    _clearTextAction->setClickedHandler([this]() {
-        _lineEdit->clear();
-        _lineEdit->setFocus();
-    });
-    configureInputIconActionStyle(_clearTextAction, _scale, QString::fromUtf8(kClearTextIconPath), kImeClearGlyphSize);
-    _imeLanguageAction->setToolTip(QStringLiteral("点击切换中英文状态。"));
-    _imeLanguageAction->setStatusTip(QStringLiteral("点击切换当前输入法的中英文状态。"));
-    _imeLanguageAction->setClickedHandler([this]() { toggleImeLanguage(); });
-    configureInputIconActionStyle(_imeLanguageAction, _scale, QString::fromUtf8(kLanguageChineseIconPath), kImeStatusGlyphSize);
-    _imeCapsAction->setToolTip(QStringLiteral("点击切换大写锁定。"));
-    _imeCapsAction->setStatusTip(QStringLiteral("点击切换 Caps Lock。"));
-    _imeCapsAction->setClickedHandler([this]() { toggleCapsLock(); });
-    configureInputIconActionStyle(_imeCapsAction, _scale, QString::fromUtf8(kCapsLockIconPath), kImeStatusGlyphSize);
-    _imeCapsAction->hide();
+    // 启用内置工具按钮：清除、大小写(Caps)、中英文(IME)。这些由 OneLineEdit
+    // 自动跟随系统状态并处理点击切换（Windows）。
+    _lineEdit->setClearButtonEnabled(true);
+    _lineEdit->setClearButtonIcon(QString::fromUtf8(kClearTextIconPath));
+    _lineEdit->setCapsButtonEnabled(true, /*autoHide=*/true);
+    _lineEdit->setCapsOffIcon(QString::fromUtf8(kCapsLockOffIconPath));
+    _lineEdit->setCapsOnIcon(QString::fromUtf8(kCapsLockOnIconPath));
+    _lineEdit->setLanguageButtonEnabled(true);
+    _lineEdit->setLanguageChineseIcon(QString::fromUtf8(kLanguageChineseIconPath));
+    _lineEdit->setLanguageEnglishIcon(QString::fromUtf8(kLanguageEnglishIconPath));
 
     _rootLayout->setContentsMargins(0, 0, 0, 0);
     _rootLayout->setSpacing(0);
@@ -415,7 +205,12 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     _previewList->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     _previewList->setPanelBackground(_previewBackground);
 
+    // 在整体控件与内部 QLineEdit 上安装事件过滤器，用于历史/拖动/调宽/右键菜单。
     _lineEdit->installEventFilter(this);
+    if (QLineEdit* innerEdit = _lineEdit->lineEdit()) {
+        innerEdit->installEventFilter(this);
+        innerEdit->setStatusTip(_lineEdit->statusTip());
+    }
     _previewList->installEventFilter(this);
 
     if (QTreeWidget* previewView = _previewList->treeWidget()) {
@@ -423,28 +218,26 @@ OneLinerWindow::OneLinerWindow(QWidget* parent)
     }
     _previewList->setItemActivatedHandler([this](const QString& rawText) {
         _lineEdit->setText(rawText);
-        _lineEdit->setFocus();
-        _lineEdit->selectAll();
+        if (QLineEdit* innerEdit = _lineEdit->lineEdit()) {
+            innerEdit->setFocus();
+            innerEdit->selectAll();
+        }
     });
 
-    connect(_lineEdit, &QLineEdit::textChanged, this, [this]() {
+    _lineEdit->setTextChangedHandler([this](const QString&) {
+        _historyIndex = -1;
+        _historyDraft.clear();
         refreshPreview();
         updateLayoutMetrics();
     });
-    connect(_lineEdit, &QLineEdit::textEdited, this, [this]() {
-        _historyIndex = -1;
-        _historyDraft.clear();
-    });
-    connect(_lineEdit, &QLineEdit::returnPressed, this, [this]() { executeRule(); });
-    connect(_lineEdit, &QWidget::customContextMenuRequested, this, [this]() { showToolsMenu(); });
-    connect(_imeStatusTimer, &QTimer::timeout, this, [this]() { refreshImeStatus(); });
+    _lineEdit->setReturnPressedHandler([this]() { executeRule(); });
 
     updateScaleFromMaya();
-    refreshImeStatus();
-    _imeStatusTimer->start(kImeStatusPollIntervalMs);
     positionNearCursor();
     _previewList->hide();
-    _lineEdit->setFocus();
+    if (QLineEdit* innerEdit = _lineEdit->lineEdit()) {
+        innerEdit->setFocus();
+    }
 }
 
 OneLinerWindow::~OneLinerWindow() = default;
@@ -472,7 +265,9 @@ void OneLinerWindow::showWindow(QWidget* mayaParent)
             }
 
             window->refreshPreview();
-            window->_lineEdit->setFocus();
+            if (QLineEdit* innerEdit = window->_lineEdit->lineEdit()) {
+                innerEdit->setFocus();
+            }
         });
     });
 }
@@ -537,29 +332,38 @@ bool OneLinerWindow::event(QEvent* event)
 bool OneLinerWindow::eventFilter(QObject* watched, QEvent* event)
 {
     const QTreeWidget* previewView = _previewList != nullptr ? _previewList->treeWidget() : nullptr;
-    if ((watched == _lineEdit || watched == _previewList || watched == previewView) && event != nullptr) {
+    QLineEdit* innerEdit = _lineEdit != nullptr ? _lineEdit->lineEdit() : nullptr;
+    // 输入相关事件来自内部 QLineEdit；整体 OneLineEdit 只用于识别（历史键在内部触发）。
+    const bool fromInput = (watched == _lineEdit || watched == innerEdit);
+
+    if ((fromInput || watched == _previewList || watched == previewView) && event != nullptr) {
         if (event->type() == QEvent::KeyPress) {
             QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-            if (watched == _lineEdit && keyEvent->key() == Qt::Key_Up) {
+            if (fromInput && keyEvent->key() == Qt::Key_Up) {
                 return stepHistory(-1);
             }
-            if (watched == _lineEdit && keyEvent->key() == Qt::Key_Down) {
+            if (fromInput && keyEvent->key() == Qt::Key_Down) {
                 return stepHistory(1);
             }
             if (keyEvent->key() == Qt::Key_Escape) {
                 close();
                 return true;
             }
+        } else if (fromInput && event->type() == QEvent::ContextMenu) {
+            // 用 oneLiner 自己的工具菜单替换内置右键菜单。
+            showToolsMenu();
+            return true;
         } else if (watched == previewView && event->type() == QEvent::Wheel && !_previewList->scrollEnabled()) {
             QWheelEvent* wheelEvent = static_cast<QWheelEvent*>(event);
             wheelEvent->accept();
             return true;
-        } else if (watched == _lineEdit && event->type() == QEvent::MouseMove && !_dragging && !_resizingWidth) {
+        } else if (fromInput && event->type() == QEvent::MouseMove && !_dragging && !_resizingWidth) {
             QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
-            updateResizeCursor(mouseEvent->pos());
+            updateResizeCursor(_lineEdit->mapFromGlobal(mouseEvent->globalPos()));
         } else if (event->type() == QEvent::MouseButtonPress) {
             QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
-            if (watched == _lineEdit && mouseEvent->button() == Qt::LeftButton && isInResizeHandle(mouseEvent->pos())) {
+            const QPoint localInWidget = _lineEdit->mapFromGlobal(mouseEvent->globalPos());
+            if (fromInput && mouseEvent->button() == Qt::LeftButton && isInResizeHandle(localInWidget)) {
                 _resizingWidth = true;
                 _resizeStartGlobalX = mouseEvent->globalX();
                 _resizeStartWidth = _lineEdit->width();
@@ -582,7 +386,10 @@ bool OneLinerWindow::eventFilter(QObject* watched, QEvent* event)
             move(pos() + (current - _dragStart));
             _dragStart = current;
             return true;
-        } else if (watched == _lineEdit && event->type() == QEvent::Leave && !_resizingWidth) {
+        } else if (fromInput && event->type() == QEvent::Leave && !_resizingWidth) {
+            if (innerEdit != nullptr) {
+                innerEdit->setCursor(Qt::IBeamCursor);
+            }
             _lineEdit->setCursor(Qt::IBeamCursor);
         } else if (event->type() == QEvent::MouseButtonRelease) {
             QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
@@ -603,11 +410,8 @@ bool OneLinerWindow::eventFilter(QObject* watched, QEvent* event)
 
 void OneLinerWindow::paintEvent(QPaintEvent* event)
 {
+    // OneLineEdit 自身负责绘制输入框面板背景，主窗口不再手工绘制。
     Q_UNUSED(event)
-
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.drawPixmap(_lineEdit->geometry().topLeft(), _inputBackground.toPixmap(_lineEdit->size()));
 }
 
 void OneLinerWindow::resizeEvent(QResizeEvent* event)
@@ -705,7 +509,9 @@ bool OneLinerWindow::stepHistory(int direction)
         ? _historyDraft
         : g_inputHistory.value(_historyIndex);
     _lineEdit->setText(nextText);
-    _lineEdit->setCursorPosition(nextText.size());
+    if (QLineEdit* innerEdit = _lineEdit->lineEdit()) {
+        innerEdit->setCursorPosition(nextText.size());
+    }
     return true;
 }
 
@@ -780,7 +586,9 @@ void OneLinerWindow::showToolsMenu()
             if (isVisible()) {
                 raise();
                 activateWindow();
-                _lineEdit->setFocus();
+                if (QLineEdit* innerEdit = _lineEdit->lineEdit()) {
+                    innerEdit->setFocus();
+                }
             }
             return;
         }
@@ -793,7 +601,9 @@ void OneLinerWindow::showToolsMenu()
         if (isVisible()) {
             raise();
             activateWindow();
-            _lineEdit->setFocus();
+            if (QLineEdit* innerEdit = _lineEdit->lineEdit()) {
+                innerEdit->setFocus();
+            }
         }
     });
 
@@ -837,122 +647,21 @@ void OneLinerWindow::updateLayoutMetrics()
     const int widthValue = qRound(logicalWidthValue * _scale);
     const int lineHeight = qRound(kInputHeight * _scale);
     const int fontSize = qRound(kInputFontSize * _scale);
-    const int imeIconSize = qRound(kImeIconSize * _scale);
-    const int imeSpacing = qRound(kImeIconSpacing * _scale);
-    const int imeRightPadding = qRound(kImeStatusRightPadding * _scale);
-    const bool showClearTextAction = !_lineEdit->text().isEmpty();
-    const int visibleIconCount = 1 + (_capsLockOn ? 1 : 0) + (showClearTextAction ? 1 : 0);
-    const int imeHostWidth = visibleIconCount > 0
-        ? imeIconSize * visibleIconCount + imeSpacing * qMax(0, visibleIconCount - 1)
-        : 0;
 
-    QFont editFont = baseUiFont();
-    editFont.setPixelSize(fontSize);
-    _lineEdit->setFont(editFont);
+    // 让 OneLineEdit 跟随 DPI 缩放（内部按钮/背景随之更新），并固定尺寸。
+    _lineEdit->setScale(_scale);
+    if (QLineEdit* innerEdit = _lineEdit->lineEdit()) {
+        QFont editFont = baseUiFont();
+        editFont.setPixelSize(fontSize);
+        innerEdit->setFont(editFont);
+    }
     _lineEdit->setFixedHeight(lineHeight);
     _lineEdit->setFixedWidth(widthValue);
-    _lineEdit->setTextMargins(qRound(kContentLeftPadding * _scale), 0, imeHostWidth + imeRightPadding + qRound(4 * _scale), 0);
-
-    configureInputIconActionStyle(_clearTextAction, _scale, QString::fromUtf8(kClearTextIconPath), kImeClearGlyphSize);
-    configureInputIconActionStyle(
-        _imeLanguageAction,
-        _scale,
-        QString::fromUtf8(_imeIsChinese ? kLanguageChineseIconPath : kLanguageEnglishIconPath),
-        kImeStatusGlyphSize);
-    configureInputIconActionStyle(_imeCapsAction, _scale, QString::fromUtf8(kCapsLockIconPath), kImeStatusGlyphSize);
-    _imeStatusHost->setGeometry(widthValue - imeHostWidth - imeRightPadding, 0, imeHostWidth, lineHeight);
-    int currentX = 0;
-    if (showClearTextAction) {
-        _clearTextAction->setGeometry(currentX, (lineHeight - imeIconSize) / 2, imeIconSize, imeIconSize);
-        _clearTextAction->show();
-        currentX += imeIconSize + imeSpacing;
-    } else {
-        _clearTextAction->hide();
-    }
-    if (_capsLockOn) {
-        _imeCapsAction->setGeometry(currentX, (lineHeight - imeIconSize) / 2, imeIconSize, imeIconSize);
-        _imeCapsAction->show();
-        currentX += imeIconSize + imeSpacing;
-    } else {
-        _imeCapsAction->hide();
-    }
-    _imeLanguageAction->setGeometry(currentX, (lineHeight - imeIconSize) / 2, imeIconSize, imeIconSize);
-    _imeLanguageAction->show();
 
     _previewList->applyScale(_scale);
     _previewList->setFixedWidth(widthValue);
 
     applyWindowLayout(_previewList->isVisible() ? _previewList->previewHeight() : 0);
-}
-
-void OneLinerWindow::refreshImeStatus()
-{
-#ifdef _WIN32
-    const HWND focusedWindow = focusedInputWindow();
-    const bool capsLockOn = (::GetKeyState(VK_CAPITAL) & 0x0001) != 0;
-
-    bool isChinese = _imeIsChinese;
-    const int imeOpen = queryImeControl(focusedWindow, kImeGetOpenStatus);
-    if (imeOpen == 0) {
-        isChinese = false;
-    } else if (imeOpen > 0) {
-        const int conversionMode = queryImeControl(focusedWindow, kImeGetConversionMode);
-        if (conversionMode >= 0) {
-            isChinese = (conversionMode & 0x0001) != 0;
-        }
-    }
-
-    if (_imeIsChinese == isChinese && _capsLockOn == capsLockOn) {
-        return;
-    }
-
-    _imeIsChinese = isChinese;
-    _capsLockOn = capsLockOn;
-    updateLayoutMetrics();
-#else
-    if (_imeStatusHost != nullptr) {
-        _imeStatusHost->hide();
-    }
-#endif
-}
-
-void OneLinerWindow::toggleImeLanguage()
-{
-#ifdef _WIN32
-    const HWND focusedWindow = focusedInputWindow();
-    if (setImeChineseState(focusedWindow, !_imeIsChinese)) {
-        QTimer::singleShot(60, this, [this]() {
-            refreshImeStatus();
-            if (_lineEdit != nullptr) {
-                _lineEdit->setFocus();
-            }
-        });
-        return;
-    }
-
-    sendVirtualKey(_imeIsChinese ? VK_NONCONVERT : VK_CONVERT);
-    QTimer::singleShot(60, this, [this]() {
-        refreshImeStatus();
-        if (_lineEdit != nullptr) {
-            _lineEdit->setFocus();
-        }
-    });
-#else
-    if (_lineEdit != nullptr) {
-        _lineEdit->setFocus();
-    }
-#endif
-}
-
-void OneLinerWindow::toggleCapsLock()
-{
-#ifdef _WIN32
-    sendVirtualKey(VK_CAPITAL);
-    refreshImeStatus();
-#endif
-    if (_lineEdit != nullptr) {
-        _lineEdit->setFocus();
-    }
 }
 
 void OneLinerWindow::applyWindowLayout(int previewHeight)
@@ -1025,7 +734,11 @@ void OneLinerWindow::updateResizeCursor(const QPoint& localPos)
         return;
     }
 
-    _lineEdit->setCursor(isInResizeHandle(localPos) ? Qt::SizeHorCursor : Qt::IBeamCursor);
+    const Qt::CursorShape shape = isInResizeHandle(localPos) ? Qt::SizeHorCursor : Qt::IBeamCursor;
+    _lineEdit->setCursor(shape);
+    if (QLineEdit* innerEdit = _lineEdit->lineEdit()) {
+        innerEdit->setCursor(shape);
+    }
 }
 
 void OneLinerWindow::rebuildPreviewTree(const OneLinerEngine::PreviewResult& result)
