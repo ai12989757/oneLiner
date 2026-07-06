@@ -2,7 +2,7 @@
 
 面向 Maya 的极简重命名插件。界面只有一行输入框，但内置了实时树预览、批量替换、通配符选择、层级与类型过滤，以及常用辅助菜单。
 
-## 已经集成进[OneMaya]([https://github.com/ai12989757/oneLiner.git](https://github.com/ai12989757/OneMaya.git))，oneLiner库不再独立更新，新链接[OneLiner](https://github.com/ai12989757/OneMaya/tree/main/Plugin/Common/OneLiner)
+## 已经集成进[OneMaya]([https://github.com/ai12989757/oneLiner.git](https://github.com/ai12989757/OneMaya.git)，oneLiner库不再独立更新，新链接[OneLiner](https://github.com/ai12989757/OneMaya/tree/main/Plugin/Common/OneLiner)
 
 ## [English](README.md) | 简体中文
 
