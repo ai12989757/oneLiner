@@ -2,6 +2,8 @@
 
 OneLiner is a lightweight renaming plugin for Maya. The UI stays intentionally minimal, but the current version includes live tree preview, batch replacement, wildcard selection, hierarchy/type filters, and a small tools menu for common actions.
 
+## It has been integrated into [OneMaya](https://github.com/ai12989757/oneLiner.git). The oneLiner library will no longer receive standalone updates. For the new link, visit [OneLiner](https://github.com/ai12989757/OneMaya/tree/main/Plugin/Common/OneLiner)
+
 ## English | [简体中文](README_zh.md)
 
 ## UI
